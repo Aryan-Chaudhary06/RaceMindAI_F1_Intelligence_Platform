@@ -10,11 +10,17 @@ from app.data.ergast_client import (
     get_driver_standings, get_constructor_standings,
     get_season_schedule, get_historical_results
 )
+from app.data.concurrent_client import fetch_standings_page
 from app.data.fastf1_client import get_lap_times, get_race_results
 from app.models.race_predictor import train_model, load_model
 from app.models.season_simulator import simulate_season, build_driver_strengths
 from app.models.driver_dna import build_driver_dna
 from app.models.explainability import get_shap_explanation, get_top_factors
+
+def format_lap_time(seconds):
+    mins = int(seconds // 60)
+    secs = seconds % 60
+    return f"{mins}:{secs:06.3f}"
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -459,7 +465,7 @@ if page == "Dashboard":
     if c1.button("📊 View Standings", use_container_width=True):
         st.session_state["active_page"] = "Live Standings"
         st.rerun()
-    if c2.button("🤖 Run Prediction", use_container_width=True):
+    if c2.button("🤖 Race Prediction", use_container_width=True):
         st.session_state["active_page"] = "Race Predictor"
         st.rerun()
     if c3.button("🏆 Simulate Season", use_container_width=True):
@@ -474,9 +480,10 @@ elif page == "Live Standings":
     st.markdown('<div class="sub-header">Formula 1 · Live Season Data</div>', unsafe_allow_html=True)
 
     with st.spinner("Loading live standings..."):
-        drivers      = get_driver_standings(season_year)
-        constructors = get_constructor_standings(season_year)
-        schedule     = get_season_schedule(season_year)
+        _data        = fetch_standings_page(season_year)   # concurrent fetch
+        drivers      = _data["drivers"]
+        constructors = _data["constructors"]
+        schedule     = _data["schedule"]
 
     done  = races_completed(schedule)
     total = len(schedule)
@@ -638,7 +645,7 @@ elif page == "Race Analysis":
             </div>
             <div class="stat-card orange">
                 <div class="stat-label">Fastest Lap</div>
-                <div class="stat-value">{fastest['LapTimeSeconds']:.3f}s</div>
+                <div class="stat-value">{format_lap_time(fastest['LapTimeSeconds'])}</div>
                 <div class="stat-sub">{fastest['Driver']}</div>
             </div>
             <div class="stat-card teal">
@@ -665,7 +672,10 @@ elif page == "Race Analysis":
                 font=dict(color="#ccc"), legend=dict(font=dict(color="#aaa")),
                 xaxis=dict(gridcolor="#1a1a1a"), yaxis=dict(gridcolor="#1a1a1a"),
             )
-            fig.update_traces(hovertemplate="<b>%{fullData.name}</b> Lap %{x}: %{y:.3f}s<extra></extra>")
+            fig.update_traces(
+                customdata=laps["LapTimeSeconds"].apply(format_lap_time),
+                hovertemplate="<b>%{fullData.name}</b> Lap %{x}: %{customdata}<extra></extra>"
+            )
             st.plotly_chart(fig, use_container_width=True)
 
         section_header("Tire Strategy", color="#ff8c00")
