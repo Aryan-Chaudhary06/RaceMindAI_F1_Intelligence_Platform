@@ -1,0 +1,6 @@
+
+data/cache/
+
+*.ff1pkl
+
+*.sqlite
