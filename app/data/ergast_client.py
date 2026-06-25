@@ -1,9 +1,25 @@
 import requests
 import pandas as pd
 import time
+import os
+import json
 
 OPENF1_BASE = "https://api.openf1.org/v1"
 JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1"
+
+# ── Local results cache ──────────────────────────────────────────────────────
+# Mirrors the convention in fastf1_client.py (data/cache). Each completed
+# season is cached once and never re-fetched. The *current* in-progress
+# season is partially cached and only the rounds run since the last cache
+# write are re-fetched — see get_cached_historical_results().
+CACHE_DIR = os.path.join(os.path.dirname(__file__), "../../data/cache/results")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def _cache_path(year: int) -> str:
+    return os.path.join(CACHE_DIR, f"results_{year}.csv")
+
+def _meta_path(year: int) -> str:
+    return os.path.join(CACHE_DIR, f"results_{year}.meta.json")
 
 def _get_openf1(endpoint: str, params: dict = None) -> list:
     """GET from OpenF1 API."""
@@ -85,32 +101,149 @@ def get_constructor_standings(year: int, round_num: int = None) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 def get_historical_results(year_start: int, year_end: int) -> pd.DataFrame:
-    """Fetches race results across multiple seasons for ML training."""
+    """Fetches race results across multiple seasons for ML training. Always
+    hits the API fresh — use get_cached_historical_results() instead if you
+    want local caching with incremental updates for the in-progress season."""
     all_rows = []
     for year in range(year_start, year_end + 1):
         try:
-            data = _get_jolpica(f"{year}/results")
-            races = data["MRData"]["RaceTable"]["Races"]
-            for race in races:
-                for result in race["Results"]:
-                    pos = result["position"]
-                    all_rows.append({
-                        "year": year,
-                        "round": int(race["round"]),
-                        "gp_name": race["raceName"],
-                        "circuit": race["Circuit"]["circuitName"],
-                        "driver": result["Driver"]["code"],
-                        "constructor": result["Constructor"]["name"],
-                        "grid": int(result["grid"]),
-                        "position": int(pos) if str(pos).isdigit() else None,
-                        "points": float(result["points"]),
-                        "status": result["status"],
-                        "laps": int(result["laps"]),
-                    })
+            all_rows.extend(_fetch_year_results(year))
             time.sleep(0.3)
         except Exception as e:
             print(f"Warning: could not fetch {year}: {e}")
     return pd.DataFrame(all_rows)
+
+def _fetch_year_results(year: int) -> list:
+    """Fetches all race results for a single season. Raises on failure —
+    callers decide how to handle it (get_historical_results swallows and
+    warns; get_cached_historical_results treats it as 'no update available
+    right now, keep using the cache')."""
+    rows = []
+    data = _get_jolpica(f"{year}/results")
+    races = data["MRData"]["RaceTable"]["Races"]
+    for race in races:
+        for result in race["Results"]:
+            pos = result["position"]
+            rows.append({
+                "year": year,
+                "round": int(race["round"]),
+                "gp_name": race["raceName"],
+                "circuit": race["Circuit"]["circuitName"],
+                "driver": result["Driver"]["code"],
+                "constructor": result["Constructor"]["name"],
+                "grid": int(result["grid"]),
+                "position": int(pos) if str(pos).isdigit() else None,
+                "points": float(result["points"]),
+                "status": result["status"],
+                "laps": int(result["laps"]),
+            })
+    return rows
+
+def get_cached_historical_results(year_start: int, year_end: int,
+                                  force_refresh: bool = False) -> pd.DataFrame:
+    """
+    Like get_historical_results(), but caches each season's results to a
+    local CSV file under data/cache/results/ so repeated training runs
+    don't re-fetch years that are already complete.
+
+    Completed seasons (anything before the current calendar year) are
+    fetched once and cached forever — they cannot change.
+
+    The CURRENT season is special-cased: it's still in progress, so on
+    every call we check whether more rounds have completed since the last
+    fetch (using the round count in the cached metadata) and only re-fetch
+    that season if so. This avoids re-downloading the whole season's
+    results every single time, while still picking up new races as they
+    happen.
+
+    Pass force_refresh=True to ignore the cache entirely (e.g. for the
+    standalone retrain script, or a "Force refresh" button in the UI).
+    """
+    import datetime
+    current_calendar_year = datetime.date.today().year
+
+    all_rows = []
+    for year in range(year_start, year_end + 1):
+        cache_file = _cache_path(year)
+        meta_file = _meta_path(year)
+        is_current_season = (year == current_calendar_year)
+
+        cached_df = None
+        if os.path.exists(cache_file) and not force_refresh:
+            try:
+                cached_df = pd.read_csv(cache_file)
+            except Exception as e:
+                print(f"Warning: cache for {year} unreadable ({e}), refetching.")
+                cached_df = None
+
+        needs_fetch = force_refresh or cached_df is None
+        if cached_df is not None and is_current_season:
+            # Current season — check if new rounds exist before refetching.
+            cached_rounds = int(cached_df["round"].max()) if len(cached_df) else 0
+            try:
+                latest_round = _get_latest_completed_round(year)
+            except Exception as e:
+                print(f"Warning: could not check latest round for {year}: {e}")
+                latest_round = cached_rounds  # assume no change, use cache as-is
+            needs_fetch = latest_round > cached_rounds
+
+        if needs_fetch:
+            try:
+                fresh_rows = _fetch_year_results(year)
+                fresh_df = pd.DataFrame(fresh_rows)
+                if len(fresh_df) > 0:
+                    fresh_df.to_csv(cache_file, index=False)
+                    with open(meta_file, "w") as f:
+                        json.dump({
+                            "fetched_at": datetime.datetime.now().isoformat(),
+                            "rounds_cached": int(fresh_df["round"].max()),
+                            "rows_cached": len(fresh_df),
+                        }, f)
+                    cached_df = fresh_df
+                    print(f"[cache] {year}: fetched fresh ({len(fresh_df)} rows, "
+                          f"through round {int(fresh_df['round'].max()) if len(fresh_df) else 0})")
+                elif cached_df is None:
+                    cached_df = pd.DataFrame()
+            except Exception as e:
+                print(f"Warning: could not fetch {year} ({e}); "
+                      f"using cached data if available.")
+                if cached_df is None:
+                    cached_df = pd.DataFrame()
+        else:
+            print(f"[cache] {year}: using cache "
+                  f"({len(cached_df)} rows, no new rounds)")
+
+        if cached_df is not None and len(cached_df) > 0:
+            all_rows.append(cached_df)
+
+    if not all_rows:
+        return pd.DataFrame()
+    return pd.concat(all_rows, ignore_index=True)
+
+def _get_latest_completed_round(year: int) -> int:
+    """Returns the highest round number with at least one completed race
+    result in Jolpica's data for the given season. Cheap-ish check used to
+    decide whether the cached current-season data is stale."""
+    data = _get_jolpica(f"{year}/results")
+    races = data["MRData"]["RaceTable"]["Races"]
+    if not races:
+        return 0
+    return max(int(r["round"]) for r in races if r.get("Results"))
+
+def get_cache_status(year_start: int, year_end: int) -> pd.DataFrame:
+    """Returns a small status table (year, rows_cached, rounds_cached,
+    fetched_at) for the UI to display — e.g. a 'Data freshness' panel."""
+    rows = []
+    for year in range(year_start, year_end + 1):
+        meta_file = _meta_path(year)
+        if os.path.exists(meta_file):
+            with open(meta_file) as f:
+                meta = json.load(f)
+            rows.append({"year": year, **meta})
+        else:
+            rows.append({"year": year, "fetched_at": None,
+                        "rounds_cached": 0, "rows_cached": 0})
+    return pd.DataFrame(rows)
 
 def get_qualifying_results(year: int, round_num: int) -> pd.DataFrame:
     """Returns qualifying results for a specific round."""

@@ -89,3 +89,61 @@ def build_training_features(historical_df: pd.DataFrame) -> pd.DataFrame:
     ]
     return df[features + ["won", "podium", "position", "driver",
                           "constructor", "circuit", "year", "round"]].copy()
+
+
+# ── New-constructor / no-history fallback ───────────────────────────────────
+# Audi and Cadillac entered F1 for the 2026 season with zero prior race
+# history under those constructor names (Audi inherits Sauber's grid slot
+# but not its constructor identity in Ergast's data model; Cadillac is a
+# brand-new 11th team). Drivers on these teams therefore have NO rows in
+# build_training_features()'s output for "constructor_avg_points" or
+# "constructor_dnf_rate" until the team accumulates its own race history.
+#
+# This is used at INFERENCE time (predicting an upcoming 2026 race), not
+# during training — build_training_features() above is only ever run on
+# completed historical seasons, where this situation can't yet occur for
+# a team that hasn't raced. Call this from the prediction-feature-row
+# builder (see app.py Race Predictor page) whenever a driver's constructor
+# has fewer than MIN_RACES_FOR_OWN_DATA races on record.
+
+NEW_CONSTRUCTORS_2026 = {"Audi", "Cadillac"}
+MIN_RACES_FOR_OWN_DATA = 3
+
+
+def apply_new_constructor_fallback(row: dict, constructor: str,
+                                    historical_features_df: pd.DataFrame) -> dict:
+    """
+    Mutates and returns `row` (a single inference-time feature dict) so that
+    constructor-pace features fall back to the midfield average when the
+    constructor has fewer than MIN_RACES_FOR_OWN_DATA races of history.
+
+    `historical_features_df` should be the output of build_training_features()
+    over whatever seasons are available (e.g. 2022-2024), used only to
+    compute what "midfield average" means.
+    """
+    races_for_constructor = (
+        historical_features_df.loc[historical_features_df["constructor"] == constructor,
+                                    ["year", "round"]]
+        .drop_duplicates()
+        .shape[0]
+    )
+
+    if constructor in NEW_CONSTRUCTORS_2026 or races_for_constructor < MIN_RACES_FOR_OWN_DATA:
+        # New constructor fallback
+        midfield = (
+            historical_features_df.groupby("constructor")["constructor_avg_points"]
+            .mean()
+            .sort_values(ascending=False)
+        )
+        if len(midfield) >= 6:
+            midfield_avg_points = midfield.iloc[5]  # rank 6 of field ≈ midfield
+        else:
+            midfield_avg_points = midfield.mean() if len(midfield) else 0.0
+
+        dnf_rates = historical_features_df.groupby("constructor")["constructor_dnf_rate"].mean()
+        midfield_dnf_rate = dnf_rates.median() if len(dnf_rates) else 0.10
+
+        row["constructor_avg_points"] = midfield_avg_points
+        row["constructor_dnf_rate"] = midfield_dnf_rate
+
+    return row

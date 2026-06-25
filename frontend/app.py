@@ -8,11 +8,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.data.ergast_client import (
     get_driver_standings, get_constructor_standings,
-    get_season_schedule, get_historical_results
+    get_season_schedule, get_historical_results, get_cached_historical_results,
 )
 from app.data.concurrent_client import fetch_standings_page
 from app.data.fastf1_client import get_lap_times, get_race_results
-from app.models.race_predictor import train_model, load_model
+from app.data.drivers_2026 import DRIVERS_2026, ROOKIE_2026
+from app.models.race_predictor import (
+    train_model, load_model, load_model_metadata, model_is_stale,
+)
 from app.models.season_simulator import simulate_season, build_driver_strengths
 from app.models.driver_dna import build_driver_dna
 from app.models.explainability import get_shap_explanation, get_top_factors
@@ -714,19 +717,63 @@ elif page == "Race Predictor":
     <div class="info-banner">
         <div class="info-banner-label">Model Info</div>
         <div class="info-banner-text">
-            Trained on 2022–2024 season data · Predicts podium probability from
-            grid position, recent form, circuit characteristics &amp; constructor pace
+            Trained on 2022–2026 season data (2026 weighted more heavily — new regulation era) ·
+            Predicts podium probability from grid position, recent form, circuit characteristics &amp; constructor pace
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("Train / Refresh Model", type="primary"):
-        with st.spinner("Fetching training data (2022-2024)..."):
-            df = get_historical_results(2022, 2024)
-        with st.spinner("Training XGBoost model..."):
-            model = train_model(df)
+    TRAIN_YEAR_START, TRAIN_YEAR_END = 2022, 2026
+
+    model_meta = load_model_metadata()
+    is_stale = model_is_stale(max_age_days=7)
+
+    if model_meta and is_stale:
+        st.warning(
+            f"Model was last trained {model_meta['trained_at'][:10]} "
+            f"on data through {max(model_meta['years_trained_on'])} "
+            f"— it's more than 7 days old and may be missing recent race results. "
+            f"Click 'Train / Refresh Model' to update it."
+        )
+    elif model_meta:
+        st.caption(
+            f"✓ Model trained {model_meta['trained_at'][:10]} on "
+            f"{model_meta['rows_trained_on']} rows spanning "
+            f"{min(model_meta['years_trained_on'])}–{max(model_meta['years_trained_on'])} · "
+            f"test accuracy {model_meta['accuracy']:.1%}"
+        )
+
+    c_train1, c_train2 = st.columns([2, 1])
+    with c_train1:
+        do_train = st.button("Train / Refresh Model", type="primary")
+    with c_train2:
+        force_refresh = st.checkbox(
+            "Force full re-fetch",
+            help="Ignore the local cache and re-download every season from the API. "
+                 "Normally only the current season is checked for new rounds."
+        )
+
+    if do_train:
+        with st.spinner(f"Fetching training data ({TRAIN_YEAR_START}-{TRAIN_YEAR_END}, cached where possible)..."):
+            df = get_cached_historical_results(TRAIN_YEAR_START, TRAIN_YEAR_END, force_refresh=force_refresh)
+        if df.empty:
+            st.error("No training data available — check your network connection and try again.")
+            st.stop()
+        with st.spinner("Training XGBoost model (2026 races weighted ~3x older data)..."):
+            model = train_model(df, use_era_weighting=True)
             st.session_state["model"] = model
-        st.success("Model trained successfully!")
+        st.success(f"Model trained successfully on {len(df)} rows!")
+        st.rerun()
+
+    with st.expander("Training data cache status"):
+        from app.data.ergast_client import get_cache_status
+        cache_status = get_cache_status(TRAIN_YEAR_START, TRAIN_YEAR_END)
+        st.dataframe(cache_status, use_container_width=True, hide_index=True)
+        st.caption(
+            "Completed seasons are cached permanently. The current season is "
+            "re-checked for new rounds each time you train, and only re-fetched "
+            "if a new race has finished since the last check."
+        )
 
     try:
         if "model" not in st.session_state:
@@ -741,32 +788,135 @@ elif page == "Race Predictor":
     standings = get_driver_standings(season_year)
 
     section_header("Configure Next Race")
-    c1, c2 = st.columns(2)
-    with c1:
-        round_num = st.slider("Round number", 1, 24, 4)
-    with c2:
-        circuit_type = st.selectbox(
-            "Circuit type", ["high_downforce","street","power","technical"]
+
+    from app.models.feature_engineering import CIRCUIT_TYPE
+
+    with st.spinner("Loading season schedule..."):
+        schedule = get_season_schedule(season_year)
+
+    if schedule.empty:
+        st.error(f"Could not load the {season_year} schedule. Try a different season.")
+        st.stop()
+
+    sorted_schedule = schedule.sort_values("round").reset_index(drop=True)
+    race_options = [
+        f"Round {r['round']} — {r['gp_name']}"
+        for _, r in sorted_schedule.iterrows()
+    ]
+    label_to_round = dict(zip(race_options, sorted_schedule["round"]))
+
+    done_so_far = races_completed(schedule)
+    # Default to the next race that hasn't happened yet — predicting a race
+    # that's already finished isn't useful, so this is almost always what
+    # someone opening this page actually wants.
+    default_round_idx = min(done_so_far, len(race_options) - 1)
+    selected_race_label = st.selectbox("Select Race", race_options, index=default_round_idx)
+    selected_round = int(label_to_round[selected_race_label])
+    selected_race_row = schedule[schedule["round"] == selected_round].iloc[0]
+    round_num = selected_round
+    circuit_name = selected_race_row["circuit"]
+    circuit_type = CIRCUIT_TYPE.get(circuit_name, "unknown")
+
+    circuit_type_display = {
+        "high_downforce": "🌀 High Downforce",
+        "street": "🏙️ Street Circuit",
+        "power": "⚡ Power Circuit",
+        "technical": "🔧 Technical",
+        "unknown": "❔ Unclassified",
+    }.get(circuit_type, circuit_type)
+
+    st.markdown(f"""
+    <div class="info-banner" style="border-left-color:#00d4aa;">
+        <div class="info-banner-label" style="color:#00d4aa;">Circuit</div>
+        <div class="info-banner-text" style="color:#ddd;font-size:0.95rem;">
+            <b>{circuit_name}</b> &nbsp;·&nbsp; {selected_race_row['country']}<br>
+            <span style="color:#888;">Type: {circuit_type_display} <i>(auto-detected from track)</i></span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Resolve circuit_type_code using the SAME categorical encoding the
+    # live model was trained on, instead of a hand-typed (and previously
+    # incorrect) mapping ──────────────────────────────────────────────────
+    # build_training_features() derives circuit_type_code via
+    # pd.Categorical(...).codes, which always sorts category names
+    # alphabetically. That ordering is stable regardless of which specific
+    # circuits appear in any one training run, so we can reproduce it here
+    # without needing to touch the training data at all.
+    _circuit_type_categories = sorted(set(CIRCUIT_TYPE.values()) | {"unknown"})
+    circuit_code = _circuit_type_categories.index(circuit_type) if circuit_type in _circuit_type_categories else len(_circuit_type_categories)
+
+    # Map each 2026 grid driver to their constructor (for the new-constructor
+    # fallback below) and current championship points (for default grid order).
+    standings_by_code = dict(zip(standings["driver"], standings["points"])) if not standings.empty else {}
+
+    section_header("Set Qualifying Grid", color="#ff8c00")
+    st.caption("Edit the Position column for each driver — predictions use whatever you set here.")
+
+    driver_rows_2026 = DRIVERS_2026.copy()
+    # Default grid order: current championship order if we have it, else roster order
+    driver_rows_2026 = sorted(
+        driver_rows_2026,
+        key=lambda d: -standings_by_code.get(d["code"], 0)
+    )
+
+    grid_df = pd.DataFrame({
+        "Position": list(range(1, len(driver_rows_2026) + 1)),
+        "Driver":   [d["name"] for d in driver_rows_2026],
+        "Team":     [d["team"] for d in driver_rows_2026],
+        "Code":     [d["code"] for d in driver_rows_2026],
+    })
+
+    col_left, col_right = st.columns(2)
+    half = (len(grid_df) + 1) // 2
+    with col_left:
+        edited_left = st.data_editor(
+            grid_df.iloc[:half].drop(columns=["Code"]),
+            use_container_width=True,
+            num_rows="fixed",
+            column_config={
+                "Position": st.column_config.NumberColumn("P", min_value=1, max_value=22, step=1, width="small"),
+                "Driver": st.column_config.TextColumn("Driver", disabled=True),
+                "Team": st.column_config.TextColumn("Team", disabled=True, width="medium"),
+            },
+            key="grid_editor_left",
+            hide_index=True,
+        )
+    with col_right:
+        edited_right = st.data_editor(
+            grid_df.iloc[half:].drop(columns=["Code"]),
+            use_container_width=True,
+            num_rows="fixed",
+            column_config={
+                "Position": st.column_config.NumberColumn("P", min_value=1, max_value=22, step=1, width="small"),
+                "Driver": st.column_config.TextColumn("Driver", disabled=True),
+                "Team": st.column_config.TextColumn("Team", disabled=True, width="medium"),
+            },
+            key="grid_editor_right",
+            hide_index=True,
         )
 
-    circuit_code = {"high_downforce":0,"street":3,"power":2,"technical":4}.get(circuit_type,0)
+    edited_df = pd.concat([edited_left, edited_right], ignore_index=True)
+    name_to_code_map = {d["name"]: d["code"] for d in DRIVERS_2026}
+    grids = {
+        name_to_code_map[row["Driver"]]: int(row["Position"])
+        for _, row in edited_df.iterrows()
+    }
+    driver_team_by_code = {name_to_code_map[d["name"]]: d["team"] for d in DRIVERS_2026}
+    drivers_list = sorted(grids, key=lambda c: grids[c])
 
-    section_header("Set Grid Positions", color="#ff8c00")
-    drivers_list = standings["driver"].tolist()[:10]
-    cols  = st.columns(5)
-    grids = {}
-    for i, driver in enumerate(drivers_list):
-        with cols[i % 5]:
-            grids[driver] = st.number_input(
-                driver, min_value=1, max_value=20, value=i+1, key=f"grid_{driver}"
-            )
+    dup_positions = edited_df["Position"].duplicated().any()
+    if dup_positions:
+        st.warning("Two drivers share the same grid position — fix the Position column above before predicting.")
 
-    if st.button("Predict Podium", type="primary"):
-        from app.models.feature_engineering import build_training_features
+    if st.button("Predict Podium", type="primary", disabled=dup_positions):
+        from app.models.feature_engineering import (
+            build_training_features, apply_new_constructor_fallback,
+        )
         from app.models.race_predictor import FEATURES, predict_race
 
         with st.spinner("Building features..."):
-            hist    = get_historical_results(2022, 2024)
+            hist    = get_cached_historical_results(2022, 2026)
             feat_df = build_training_features(hist)
 
         rows = []
@@ -781,6 +931,9 @@ elif page == "Race Predictor":
                 "round": round_num,
                 "year": season_year,
             })
+            constructor = driver_team_by_code.get(driver)
+            if constructor:
+                row = apply_new_constructor_fallback(row, constructor, feat_df)
             rows.append(row)
 
         predictions = predict_race(model, pd.DataFrame(rows))
@@ -1054,7 +1207,7 @@ elif page == "Driver Dynamics":
     """, unsafe_allow_html=True)
 
     with st.spinner("Building driver dynamics profiles from historical data..."):
-        hist = get_historical_results(2022, 2024)
+        hist = get_cached_historical_results(2022, 2026)
         dna  = build_driver_dna(hist)
 
     DIMENSIONS  = ["street","power","technical","high_downforce","consistency","race_craft"]
