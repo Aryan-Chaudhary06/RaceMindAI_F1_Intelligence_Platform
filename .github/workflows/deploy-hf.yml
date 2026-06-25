@@ -1,0 +1,39 @@
+name: Deploy to Hugging Face
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub CI"
+          
+          # Clone HF Space
+          git clone https://Megmez:$HF_TOKEN@huggingface.co/spaces/Megmez/RaceMindAI hf-space
+          
+          # Copy repo files excluding cache and model
+          rsync -av --exclude='.git' \
+                    --exclude='data/cache/' \
+                    --exclude='data/race_model.pkl' \
+                    --exclude='*.ff1pkl' \
+                    --exclude='*.sqlite' \
+                    --exclude='*.pkl' \
+                    . hf-space/
+          
+          # Push to HF
+          cd hf-space
+          git add .
+          git diff --staged --quiet || git commit -m "Deploy from GitHub: ${{ github.sha }}"
+          git push
