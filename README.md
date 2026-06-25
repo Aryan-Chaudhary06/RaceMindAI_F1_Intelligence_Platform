@@ -11,6 +11,8 @@ pinned: false
 
 > A full-stack AI-powered Formula 1 intelligence platform with live 2026 season data, ML race predictions, Monte Carlo championship simulations.
 
+Live Deployment Link: https://huggingface.co/spaces/Megmez/RaceMindAI
+
 ## What is RaceMindAI?
 
 RaceMindAI is a personal F1 data science project that goes beyond typical portfolio dashboards. It ingests **live 2026 F1 season data**, runs real ML models, and lets you talk to an AI that knows the current championship standings. Built entirely in Python, deployed on Streamlit Cloud.
