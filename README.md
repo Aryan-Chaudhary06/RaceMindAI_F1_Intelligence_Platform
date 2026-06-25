@@ -1,3 +1,13 @@
+---
+title: RaceMindAI F1 Intelligence Platform
+emoji: 🏎️
+colorFrom: red
+colorTo: gray
+sdk: streamlit
+sdk_version: 1.35.0
+app_file: frontend/app.py
+pinned: false
+---
 # 🏎️ RaceMindAI - F1 Intelligence Platform
 
 > A full-stack AI-powered Formula 1 intelligence platform with live 2026 season data, ML race predictions, Monte Carlo championship simulations.

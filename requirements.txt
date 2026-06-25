@@ -12,9 +12,8 @@ anthropic
 python-dotenv
 httpx
 pytest
-google-generativeai
 shap
-shap
-google-genai
-groq
 aiohttp
+openf1
+matplotlib
+requests
