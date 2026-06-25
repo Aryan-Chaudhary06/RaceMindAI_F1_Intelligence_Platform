@@ -10,8 +10,17 @@ from sklearn.metrics import accuracy_score, classification_report
 
 from app.models.feature_engineering import build_training_features
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "../../data/race_model.pkl")
-MODEL_META_PATH = os.path.join(os.path.dirname(__file__), "../../data/race_model.meta.json")
+# ── Path resolution ──────────────────────────────────────────────────────────
+# On Hugging Face Spaces, /tmp is writable but data/ is read-only (no .pkl
+# can be committed due to HF binary file restrictions). We store the trained
+# model in /tmp on HF and fall back to the local data/ path for development.
+# Set MODEL_DIR=/tmp in HF Space secrets to activate the HF path.
+_DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(__file__), "../../data")
+MODEL_DIR = os.getenv("MODEL_DIR", _DEFAULT_MODEL_DIR)
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+MODEL_PATH = os.path.join(MODEL_DIR, "race_model.pkl")
+MODEL_META_PATH = os.path.join(MODEL_DIR, "race_model.meta.json")
 
 FEATURES = [
     "grid", "grid_squared",
@@ -111,12 +120,55 @@ def train_model(historical_df: pd.DataFrame,
             "era_weights": era_weights or REGULATION_ERA_WEIGHTS,
         }, f, indent=2)
 
-    print(f"Model saved — n_features: {model.n_features_in_}")
+    print(f"Model saved to {MODEL_PATH} — n_features: {model.n_features_in_}")
     return model
 
+
 def load_model() -> XGBClassifier:
+    """
+    Load the trained model from disk. If no model file exists (e.g. first
+    run on Hugging Face Spaces where .pkl files cannot be committed), raises
+    a clear FileNotFoundError so the caller can trigger a retrain.
+    """
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(
+            f"No trained model found at {MODEL_PATH}. "
+            "Click 'Train / Refresh Model' to train it now."
+        )
     with open(MODEL_PATH, "rb") as f:
         return pickle.load(f)
+
+
+def load_or_train_model(historical_df: pd.DataFrame = None) -> XGBClassifier:
+    """
+    Try to load the model. If it doesn't exist (first run on HF Spaces or
+    after cache cleared), train it automatically using historical_df.
+
+    This is the preferred entry point for the Streamlit app — it never
+    crashes on a missing model file.
+
+    Args:
+        historical_df: Raw historical race results DataFrame. Only needed
+                       if the model file is missing. If None and the model
+                       is missing, raises RuntimeError with a user-friendly
+                       message.
+    """
+    if os.path.exists(MODEL_PATH):
+        print(f"Loading existing model from {MODEL_PATH}")
+        with open(MODEL_PATH, "rb") as f:
+            return pickle.load(f)
+
+    # Model missing — happens on first HF Spaces run or after /tmp reset
+    if historical_df is None:
+        raise RuntimeError(
+            "No trained model found and no training data was provided. "
+            "Pass historical_df to load_or_train_model() or click "
+            "'Train / Refresh Model' in the UI."
+        )
+
+    print(f"No model found at {MODEL_PATH} — training now...")
+    return train_model(historical_df)
+
 
 def load_model_metadata() -> dict | None:
     """Returns the metadata saved alongside the model at last train time
@@ -126,6 +178,12 @@ def load_model_metadata() -> dict | None:
         return None
     with open(MODEL_META_PATH) as f:
         return json.load(f)
+
+
+def model_exists() -> bool:
+    """Returns True if a trained model file exists on disk."""
+    return os.path.exists(MODEL_PATH)
+
 
 def model_is_stale(max_age_days: int = 7) -> bool:
     """
@@ -143,7 +201,6 @@ def model_is_stale(max_age_days: int = 7) -> bool:
     return age > datetime.timedelta(days=max_age_days)
 
 
-
 def predict_race(model: XGBClassifier,
                  race_features: pd.DataFrame) -> pd.DataFrame:
     df = race_features.copy()
@@ -158,7 +215,8 @@ def predict_race(model: XGBClassifier,
     df["podium_probability"] = probs
     df = df.sort_values("podium_probability", ascending=False)
     df["predicted_position"] = range(1, len(df) + 1)
-    return df[["driver","podium_probability","predicted_position"] + FEATURES].reset_index(drop=True)
+    return df[["driver", "podium_probability", "predicted_position"] + FEATURES].reset_index(drop=True)
+
 
 def get_feature_importance(model: XGBClassifier) -> pd.DataFrame:
     importance = model.feature_importances_

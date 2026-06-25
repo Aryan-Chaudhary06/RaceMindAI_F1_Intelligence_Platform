@@ -14,7 +14,7 @@ from app.data.concurrent_client import fetch_standings_page
 from app.data.fastf1_client import get_lap_times, get_race_results
 from app.data.drivers_2026 import DRIVERS_2026, ROOKIE_2026
 from app.models.race_predictor import (
-    train_model, load_model, load_model_metadata, model_is_stale,
+    train_model, load_or_train_model, load_model_metadata, model_is_stale,
 )
 from app.models.season_simulator import simulate_season, build_driver_strengths
 from app.models.driver_dna import build_driver_dna
@@ -775,14 +775,31 @@ elif page == "Race Predictor":
             "if a new race has finished since the last check."
         )
 
-    try:
-        if "model" not in st.session_state:
-            model = load_model()
-            st.session_state["model"] = model
-            st.info("Loaded existing model from disk.")
-    except:
-        st.warning("No model found — click 'Train / Refresh Model' first.")
-        st.stop()
+    if "model" not in st.session_state:
+        from app.models.race_predictor import model_exists
+        if model_exists():
+            # Model file present — load it directly (fast path, normal local dev)
+            try:
+                model = load_or_train_model()
+                st.session_state["model"] = model
+                st.info("Loaded existing model from disk.")
+            except Exception as e:
+                st.error(f"Failed to load model: {e}")
+                st.stop()
+        else:
+            # No model file — happens on first HF Spaces run (/tmp is empty)
+            # Auto-train using historical data so the app works without user action
+            st.info("No trained model found — training now (this runs once, takes ~60s)...")
+            with st.spinner("Fetching training data (2022–2026)..."):
+                hist_df = get_cached_historical_results(TRAIN_YEAR_START, TRAIN_YEAR_END)
+            if hist_df.empty:
+                st.error("Could not fetch training data. Check your network connection.")
+                st.stop()
+            with st.spinner("Training XGBoost model..."):
+                model = load_or_train_model(historical_df=hist_df)
+                st.session_state["model"] = model
+            st.success("Model trained and ready!")
+            st.rerun()
 
     model     = st.session_state["model"]
     standings = get_driver_standings(season_year)
