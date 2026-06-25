@@ -1,6 +1,8 @@
-
 data/cache/
-
+data/race_model.pkl
 *.ff1pkl
-
 *.sqlite
+*.pkl
+__pycache__/
+*.pyc
+.env
