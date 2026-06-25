@@ -3,9 +3,8 @@ title: RaceMindAI F1 Intelligence Platform
 emoji: 🏎️
 colorFrom: red
 colorTo: gray
-sdk: streamlit
-sdk_version: 1.35.0
-app_file: frontend/app.py
+sdk: docker
+app_port: 7860
 pinned: false
 ---
 # 🏎️ RaceMindAI - F1 Intelligence Platform
