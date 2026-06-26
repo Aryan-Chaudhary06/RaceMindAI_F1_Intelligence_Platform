@@ -60,9 +60,15 @@ def compute_sample_weights(df: pd.DataFrame,
     """
     Returns a per-row weight array aligned to df's index, based on each
     row's `year` column and REGULATION_ERA_WEIGHTS (or a custom override).
+
+    Uses numpy vectorize instead of pandas .map() — pandas map behaviour
+    with dict arguments changed across 2.x versions and produced doubled
+    arrays in some configurations. numpy vectorize is stable across all versions.
     """
     weights = era_weights or REGULATION_ERA_WEIGHTS
-    return df["year"].map(weights).fillna(DEFAULT_ERA_WEIGHT).values
+    years = df["year"].to_numpy(dtype=int)
+    get_weight = np.vectorize(lambda y: weights.get(int(y), DEFAULT_ERA_WEIGHT))
+    return get_weight(years)  # guaranteed 1D, same length as df
 
 
 def train_model(historical_df: pd.DataFrame,
@@ -79,6 +85,10 @@ def train_model(historical_df: pd.DataFrame,
     X_train, X_test, y_train, y_test, sw_train, sw_test = train_test_split(
         X, y, sw, test_size=0.2, random_state=42, stratify=y
     )
+    # sw is already guaranteed 1D by compute_sample_weights (numpy vectorize)
+    # but squeeze here as a final safety net
+    sw_train = np.asarray(sw_train, dtype=float).ravel()
+    sw_test  = np.asarray(sw_test,  dtype=float).ravel()
 
     model = XGBClassifier(
         n_estimators=300,
