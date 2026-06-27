@@ -263,6 +263,110 @@ def get_qualifying_results(year: int, round_num: int) -> pd.DataFrame:
         })
     return pd.DataFrame(rows)
 
+
+# ── Bulk historical qualifying results (for the qualifying ranker model) ────
+# Same shape and same caching strategy as get_cached_historical_results()
+# above (results), just pointed at Jolpica's qualifying endpoint instead of
+# results. Kept as separate functions/cache files rather than generalizing
+# both into one parameterized cache, since qualifying and race results have
+# different row shapes (Q1/Q2/Q3 times vs laps/points/status) and merging
+# the caching logic would make both harder to read for a small de-dup win.
+
+def _qual_cache_path(year: int) -> str:
+    return os.path.join(CACHE_DIR, f"qualifying_{year}.csv")
+
+def _qual_meta_path(year: int) -> str:
+    return os.path.join(CACHE_DIR, f"qualifying_{year}.meta.json")
+
+def _fetch_year_qualifying(year: int) -> list:
+    """Fetches all qualifying results for a single season. Raises on
+    failure, same contract as _fetch_year_results()."""
+    rows = []
+    data = _get_jolpica(f"{year}/qualifying")
+    races = data["MRData"]["RaceTable"]["Races"]
+    for race in races:
+        for r in race.get("QualifyingResults", []):
+            rows.append({
+                "year": year,
+                "round": int(race["round"]),
+                "gp_name": race["raceName"],
+                "circuit": race["Circuit"]["circuitName"],
+                "position": int(r["position"]),
+                "driver": r["Driver"]["code"],
+                "constructor": r["Constructor"]["name"],
+                "q1": r.get("Q1", None),
+                "q2": r.get("Q2", None),
+                "q3": r.get("Q3", None),
+            })
+    return rows
+
+def get_cached_historical_qualifying(year_start: int, year_end: int,
+                                     force_refresh: bool = False) -> pd.DataFrame:
+    """
+    Qualifying-results equivalent of get_cached_historical_results(): caches
+    each completed season's qualifying results to local CSV, and for the
+    current in-progress season only re-fetches when a new round's
+    qualifying session has happened since the last check.
+    """
+    import datetime
+    current_calendar_year = datetime.date.today().year
+
+    all_rows = []
+    for year in range(year_start, year_end + 1):
+        cache_file = _qual_cache_path(year)
+        meta_file = _qual_meta_path(year)
+        is_current_season = (year == current_calendar_year)
+
+        cached_df = None
+        if os.path.exists(cache_file) and not force_refresh:
+            try:
+                cached_df = pd.read_csv(cache_file)
+            except Exception as e:
+                print(f"Warning: qualifying cache for {year} unreadable ({e}), refetching.")
+                cached_df = None
+
+        needs_fetch = force_refresh or cached_df is None
+        if cached_df is not None and is_current_season:
+            cached_rounds = int(cached_df["round"].max()) if len(cached_df) else 0
+            try:
+                latest_round = _get_latest_completed_round(year)  # results-based check is fine —
+                # qualifying always happens before/with the race for the same round, so "race round
+                # N has results" implies "qualifying round N also has results".
+            except Exception as e:
+                print(f"Warning: could not check latest round for {year}: {e}")
+                latest_round = cached_rounds
+            needs_fetch = latest_round > cached_rounds
+
+        if needs_fetch:
+            try:
+                fresh_rows = _fetch_year_qualifying(year)
+                fresh_df = pd.DataFrame(fresh_rows)
+                if len(fresh_df) > 0:
+                    fresh_df.to_csv(cache_file, index=False)
+                    with open(meta_file, "w") as f:
+                        json.dump({
+                            "fetched_at": datetime.datetime.now().isoformat(),
+                            "rounds_cached": int(fresh_df["round"].max()),
+                            "rows_cached": len(fresh_df),
+                        }, f)
+                    cached_df = fresh_df
+                    print(f"[cache] qualifying {year}: fetched fresh ({len(fresh_df)} rows)")
+                elif cached_df is None:
+                    cached_df = pd.DataFrame()
+            except Exception as e:
+                print(f"Warning: could not fetch qualifying {year} ({e}); using cache if available.")
+                if cached_df is None:
+                    cached_df = pd.DataFrame()
+        else:
+            print(f"[cache] qualifying {year}: using cache ({len(cached_df)} rows)")
+
+        if cached_df is not None and len(cached_df) > 0:
+            all_rows.append(cached_df)
+
+    if not all_rows:
+        return pd.DataFrame()
+    return pd.concat(all_rows, ignore_index=True)
+
 def get_current_drivers(year: int = 2025) -> pd.DataFrame:
     """Returns all drivers on the current grid via OpenF1."""
     data = _get_openf1("drivers", {"session_key": "latest"})

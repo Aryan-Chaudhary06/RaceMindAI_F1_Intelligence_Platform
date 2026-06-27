@@ -358,9 +358,9 @@ def section_header(title: str, color: str = "#e10600"):
     """, unsafe_allow_html=True)
 
 # ── Navigation state ───────────────────────────────────────────────────────────
-NAV_PAGES = ["Dashboard", "Live Standings", "Race Analysis", "Race Predictor", "Season Championship", "Driver Dynamics"]
-NAV_ICONS = ["🏁", "📊", "📈", "🤖", "🏆", "🧬"]
-NAV_LABELS = ["Dashboard", "Standings", "Analysis", "Predictor", "Championship", "Driver Dynamics"]
+NAV_PAGES = ["Dashboard", "Live Standings", "Race Analysis", "Qualifying Predictor", "Race Predictor", "Season Championship", "Driver Dynamics"]
+NAV_ICONS = ["🏁", "📊", "📈", "🔮", "🤖", "🏆", "🧬"]
+NAV_LABELS = ["Dashboard", "Standings", "Analysis", "Qualifying", "Predictor", "Championship", "Driver Dynamics"]
 
 if "active_page" not in st.session_state:
     st.session_state["active_page"] = "Dashboard"
@@ -709,6 +709,255 @@ elif page == "Race Analysis":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: RACE PREDICTOR
 # ══════════════════════════════════════════════════════════════════════════════
+elif page == "Qualifying Predictor":
+    st.markdown('<div class="main-header">Qualifying Predictor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">ML-powered grid order prediction · XGBoost ranker</div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="info-banner">
+        <div class="info-banner-label">Model Info</div>
+        <div class="info-banner-text">
+            A separate model from the Race Predictor — trained on historical QUALIFYING results
+            (not race results) to predict single-lap pace order. Uses rolling qualifying form,
+            constructor pace, and circuit type (2026 weighted more heavily — new regulation era).
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    from app.data.ergast_client import get_cached_historical_qualifying
+    from app.models.qualifying_predictor import (
+        train_qualifying_model, load_or_train_qualifying_model, qualifying_model_exists,
+        load_qualifying_model_metadata, qualifying_model_is_stale,
+        predict_qualifying_order, FEATURES as QUALI_FEATURES,
+    )
+    from app.models.qualifying_feature_engineering import (
+        build_qualifying_training_features, apply_qualifying_new_constructor_fallback,
+        apply_rookie_fallback,
+    )
+
+    QUALI_TRAIN_YEAR_START, QUALI_TRAIN_YEAR_END = 2022, 2026
+
+    quali_meta = load_qualifying_model_metadata()
+    quali_is_stale = qualifying_model_is_stale(max_age_days=7)
+
+    if quali_meta and quali_is_stale:
+        st.warning(
+            f"Qualifying model was last trained {quali_meta['trained_at'][:10]} "
+            f"on data through {max(quali_meta['years_trained_on'])} — it's more than 7 days old. "
+            f"Click 'Train / Refresh Model' to update it."
+        )
+    elif quali_meta:
+        st.caption(
+            f"✓ Model trained {quali_meta['trained_at'][:10]} on "
+            f"{quali_meta['sessions_trained_on']} qualifying sessions spanning "
+            f"{min(quali_meta['years_trained_on'])}–{max(quali_meta['years_trained_on'])} · "
+            f"pole accuracy {quali_meta['pole_accuracy']:.1%} · "
+            f"top-3 accuracy {quali_meta['top3_accuracy']:.1%}"
+        )
+
+    c_qtrain1, c_qtrain2 = st.columns([2, 1])
+    with c_qtrain1:
+        do_quali_train = st.button("Train / Refresh Model", type="primary", key="train_quali_model")
+    with c_qtrain2:
+        quali_force_refresh = st.checkbox(
+            "Force full re-fetch", key="quali_force_refresh",
+            help="Ignore the local qualifying cache and re-download every season from the API."
+        )
+
+    if do_quali_train:
+        with st.spinner(f"Fetching qualifying data ({QUALI_TRAIN_YEAR_START}-{QUALI_TRAIN_YEAR_END}, cached where possible)..."):
+            quali_hist = get_cached_historical_qualifying(
+                QUALI_TRAIN_YEAR_START, QUALI_TRAIN_YEAR_END, force_refresh=quali_force_refresh
+            )
+        if quali_hist.empty:
+            st.error("No qualifying data available — check your network connection and try again.")
+            st.stop()
+        try:
+            with st.spinner("Training XGBoost ranker (2026 sessions weighted ~3x older data)..."):
+                quali_model = train_qualifying_model(quali_hist, use_era_weighting=True)
+                st.session_state["quali_model"] = quali_model
+            st.success(f"Qualifying model trained successfully on {len(quali_hist)} rows!")
+            st.rerun()
+        except ValueError as e:
+            st.error(str(e))
+            st.stop()
+
+    if "quali_model" not in st.session_state:
+        if qualifying_model_exists():
+            try:
+                quali_model = load_or_train_qualifying_model()
+                st.session_state["quali_model"] = quali_model
+                st.info("Loaded existing qualifying model from disk.")
+            except Exception as e:
+                st.error(f"Failed to load qualifying model: {e}")
+                st.stop()
+        else:
+            st.info("No trained qualifying model found — training now (this runs once, takes ~30-60s)...")
+            with st.spinner(f"Fetching qualifying data ({QUALI_TRAIN_YEAR_START}-{QUALI_TRAIN_YEAR_END})..."):
+                quali_hist = get_cached_historical_qualifying(QUALI_TRAIN_YEAR_START, QUALI_TRAIN_YEAR_END)
+            if quali_hist.empty:
+                st.error("Could not fetch qualifying data. Check your network connection.")
+                st.stop()
+            try:
+                with st.spinner("Training XGBoost ranker..."):
+                    quali_model = load_or_train_qualifying_model(historical_quali_df=quali_hist)
+                    st.session_state["quali_model"] = quali_model
+                st.success("Qualifying model trained and ready!")
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
+                st.stop()
+
+    quali_model = st.session_state["quali_model"]
+
+    section_header("Select Session")
+
+    with st.spinner("Loading season schedule..."):
+        quali_schedule = get_season_schedule(season_year)
+
+    if quali_schedule.empty:
+        st.error(f"Could not load the {season_year} schedule. Try a different season.")
+        st.stop()
+
+    quali_sorted_schedule = quali_schedule.sort_values("round").reset_index(drop=True)
+    quali_race_options = [
+        f"Round {r['round']} — {r['gp_name']}"
+        for _, r in quali_sorted_schedule.iterrows()
+    ]
+    quali_label_to_round = dict(zip(quali_race_options, quali_sorted_schedule["round"]))
+    quali_done_so_far = races_completed(quali_schedule)
+    quali_default_idx = min(quali_done_so_far, len(quali_race_options) - 1)
+
+    c_sel1, c_sel2 = st.columns([3, 1])
+    with c_sel1:
+        quali_selected_label = st.selectbox("Select Race", quali_race_options, index=quali_default_idx, key="quali_race_select")
+    with c_sel2:
+        weather = st.selectbox("Weather", ["Dry", "Wet", "Mixed"], key="quali_weather")
+
+    quali_selected_round = int(quali_label_to_round[quali_selected_label])
+    quali_selected_row = quali_schedule[quali_schedule["round"] == quali_selected_round].iloc[0]
+    quali_circuit_name = quali_selected_row["circuit"]
+
+    from app.models.feature_engineering import CIRCUIT_TYPE as QUALI_CIRCUIT_TYPE
+    quali_circuit_type = QUALI_CIRCUIT_TYPE.get(quali_circuit_name, "unknown")
+    quali_circuit_type_display = {
+        "high_downforce": "🌀 High Downforce", "street": "🏙️ Street Circuit",
+        "power": "⚡ Power Circuit", "technical": "🔧 Technical", "unknown": "❔ Unclassified",
+    }.get(quali_circuit_type, quali_circuit_type)
+
+    st.markdown(f"""
+    <div class="info-banner" style="border-left-color:#00d4aa;">
+        <div class="info-banner-label" style="color:#00d4aa;">Session</div>
+        <div class="info-banner-text" style="color:#ddd;font-size:0.95rem;">
+            <b>{quali_circuit_name}</b> &nbsp;·&nbsp; {quali_selected_row['country']}<br>
+            <span style="color:#888;">Type: {quali_circuit_type_display} &nbsp;·&nbsp; Weather: {weather}
+            <i>(auto-detected from track — not user-selectable)</i></span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _quali_circuit_categories = sorted(set(QUALI_CIRCUIT_TYPE.values()) | {"unknown"})
+    quali_circuit_code = (
+        _quali_circuit_categories.index(quali_circuit_type)
+        if quali_circuit_type in _quali_circuit_categories
+        else len(_quali_circuit_categories)
+    )
+    is_wet_flag = 1 if weather in ("Wet", "Mixed") else 0
+
+    if st.button("Predict Qualifying Order", type="primary", key="predict_quali_btn"):
+        with st.spinner("Building features..."):
+            quali_hist_for_inference = get_cached_historical_qualifying(QUALI_TRAIN_YEAR_START, QUALI_TRAIN_YEAR_END)
+            quali_feat_df = build_qualifying_training_features(quali_hist_for_inference)
+
+        driver_team_by_code = {d["code"]: d["team"] for d in DRIVERS_2026}
+
+        quali_rows = []
+        for d in DRIVERS_2026:
+            code = d["code"]
+            dh = quali_feat_df[quali_feat_df["driver"] == code]
+            row = dh.iloc[-1][QUALI_FEATURES].to_dict() if len(dh) > 0 else {f: 0.0 for f in QUALI_FEATURES}
+            row.update({
+                "driver": code,
+                "circuit_type_code": quali_circuit_code,
+                "is_wet": is_wet_flag,
+                "round": quali_selected_round,
+                "year": season_year,
+            })
+            constructor = driver_team_by_code.get(code)
+            if constructor:
+                row = apply_qualifying_new_constructor_fallback(row, constructor, quali_feat_df)
+            row = apply_rookie_fallback(row, d["name"], ROOKIE_2026, quali_feat_df)
+            quali_rows.append(row)
+
+        quali_predictions = predict_qualifying_order(quali_model, pd.DataFrame(quali_rows))
+        st.session_state["quali_predictions"] = quali_predictions
+        st.session_state["quali_predictions_round"] = quali_selected_round
+
+    if "quali_predictions" in st.session_state:
+        quali_predictions = st.session_state["quali_predictions"]
+        code_to_driver_2026 = {d["code"]: d for d in DRIVERS_2026}
+
+        predictions_stale = st.session_state.get("quali_predictions_round") != quali_selected_round
+        if predictions_stale:
+            st.warning(
+                "These predictions are for a different race than the one currently selected above — "
+                "click 'Predict Qualifying Order' again to refresh them for this race."
+            )
+
+        section_header("Predicted Qualifying Grid", color="#00d4aa")
+        st.caption("P1 (pole) first. 🆕 marks drivers with little or no qualifying history — their position is a projected estimate, not a confident prediction.")
+
+        display_rows = []
+        for _, r in quali_predictions.iterrows():
+            info = code_to_driver_2026.get(r["driver"], {})
+            is_rookie = info.get("name") in ROOKIE_2026
+            display_rows.append({
+                "Pos": int(r["predicted_quali_position"]),
+                "Driver": f"{info.get('name', r['driver'])}{' 🆕' if is_rookie else ''}",
+                "Team": info.get("team", "—"),
+                "Confidence": f"{r['confidence']:.0f}%",
+            })
+        display_df = pd.DataFrame(display_rows)
+
+        col_qleft, col_qright = st.columns(2)
+        half_q = (len(display_df) + 1) // 2
+        with col_qleft:
+            st.dataframe(display_df.iloc[:half_q], use_container_width=True, hide_index=True)
+        with col_qright:
+            st.dataframe(display_df.iloc[half_q:], use_container_width=True, hide_index=True)
+
+        if any(code_to_driver_2026.get(r["driver"], {}).get("name") in ROOKIE_2026 for _, r in quali_predictions.iterrows()):
+            st.caption("🆕 Limited data — scores projected from field-average qualifying pace, not the individual driver's history.")
+
+        fig_q = px.bar(
+            quali_predictions.head(10).assign(
+                driver_name=lambda d: d["driver"].map(lambda c: code_to_driver_2026.get(c, {}).get("name", c))
+            ),
+            x="driver_name", y="confidence", color="confidence",
+            color_continuous_scale=["#1a1a1a", "#00d4aa"],
+            text=quali_predictions.head(10)["confidence"].apply(lambda x: f"{x:.0f}%"),
+        )
+        fig_q.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            height=400, xaxis_title="Driver", yaxis_title="Relative Confidence",
+            showlegend=False, coloraxis_showscale=False,
+            font=dict(color="#ccc"),
+            xaxis=dict(gridcolor="#1a1a1a"), yaxis=dict(gridcolor="#1a1a1a"),
+        )
+        fig_q.update_traces(textposition="outside", textfont=dict(color="#aaa"))
+        st.plotly_chart(fig_q, use_container_width=True)
+
+        st.info("→ Use this grid as the starting point on the Race Predictor page")
+        if st.button("Use this as Race Predictor grid", type="secondary"):
+            prefill_positions = {
+                r["driver"]: int(r["predicted_quali_position"])
+                for _, r in quali_predictions.iterrows()
+            }
+            st.session_state["prefill_grid_positions"] = prefill_positions
+            st.session_state["active_page"] = "Race Predictor"
+            st.rerun()
+
+
 elif page == "Race Predictor":
     st.markdown('<div class="main-header">Race Predictor</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">ML-powered podium probability · XGBoost model</div>', unsafe_allow_html=True)
@@ -871,11 +1120,29 @@ elif page == "Race Predictor":
     st.caption("Edit the Position column for each driver — predictions use whatever you set here.")
 
     driver_rows_2026 = DRIVERS_2026.copy()
-    # Default grid order: current championship order if we have it, else roster order
-    driver_rows_2026 = sorted(
-        driver_rows_2026,
-        key=lambda d: -standings_by_code.get(d["code"], 0)
-    )
+
+    prefill = st.session_state.get("prefill_grid_positions")  # set by the Qualifying Predictor page's "Use this grid" button
+    if prefill:
+        st.success(
+            "Using the predicted qualifying order from the Qualifying Predictor page as the starting grid below — "
+            "feel free to edit it before predicting."
+        )
+        driver_rows_2026 = sorted(driver_rows_2026, key=lambda d: prefill.get(d["code"], 99))
+        del st.session_state["prefill_grid_positions"]  # one-time use — don't keep re-applying on every rerun
+        # Bump the grid editor's widget key + drop any cached edit state for the
+        # old key. st.data_editor keeps showing its OLD edited state when the
+        # underlying source dataframe changes but the widget key doesn't — this
+        # forces Streamlit to treat it as a brand-new widget instead.
+        st.session_state["grid_editor_key_suffix"] = st.session_state.get("grid_editor_key_suffix", 0) + 1
+        st.session_state.pop("grid_editor_left", None)
+        st.session_state.pop("grid_editor_right", None)
+    else:
+        # Default grid order: current championship order if we have it, else roster order
+        driver_rows_2026 = sorted(
+            driver_rows_2026,
+            key=lambda d: -standings_by_code.get(d["code"], 0)
+        )
+    grid_editor_key_suffix = st.session_state.get("grid_editor_key_suffix", 0)
 
     grid_df = pd.DataFrame({
         "Position": list(range(1, len(driver_rows_2026) + 1)),
@@ -896,7 +1163,7 @@ elif page == "Race Predictor":
                 "Driver": st.column_config.TextColumn("Driver", disabled=True),
                 "Team": st.column_config.TextColumn("Team", disabled=True, width="medium"),
             },
-            key="grid_editor_left",
+            key=f"grid_editor_left_{grid_editor_key_suffix}",
             hide_index=True,
         )
     with col_right:
@@ -909,7 +1176,7 @@ elif page == "Race Predictor":
                 "Driver": st.column_config.TextColumn("Driver", disabled=True),
                 "Team": st.column_config.TextColumn("Team", disabled=True, width="medium"),
             },
-            key="grid_editor_right",
+            key=f"grid_editor_right_{grid_editor_key_suffix}",
             hide_index=True,
         )
 
