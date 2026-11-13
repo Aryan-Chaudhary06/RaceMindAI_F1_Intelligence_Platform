@@ -7,6 +7,7 @@ import datetime
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, classification_report
 
+import base64
 from app.models.feature_engineering import build_training_features
 from app.models.weather_features import WEATHER_FEATURE_COLUMNS, attach_weather_features
 from app.models.practice_pace_features import PRACTICE_PACE_FEATURE_COLUMNS, attach_practice_pace_features
@@ -15,14 +16,38 @@ _DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(__file__), "../../data")
 MODEL_DIR = os.getenv("MODEL_DIR", _DEFAULT_MODEL_DIR)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
+MODEL_PATH_JSON = os.path.join(MODEL_DIR, "race_model.json")
 MODEL_PATH = os.path.join(MODEL_DIR, "race_model.pkl")
 MODEL_META_PATH = os.path.join(MODEL_DIR, "race_model.meta.json")
-# Calibration — see RaceMindAI_Redesign_Phases6-7.md §6.5 / Audit Phase 5
-# "No calibration validation" (Critical gap). Stored as a SEPARATE pickle
-# from the classifier itself (not baked in) so an older race_model.pkl
-# without a matching calibrator file degrades gracefully — predict_race()
-# just returns raw probabilities in that case rather than erroring.
+CALIBRATOR_PATH_JSON = os.path.join(MODEL_DIR, "race_model_calibrator.json")
 CALIBRATOR_PATH = os.path.join(MODEL_DIR, "race_model_calibrator.pkl")
+
+
+def _ensure_models_seeded():
+    """Ensure bundled JSON models in _DEFAULT_MODEL_DIR are copied to MODEL_DIR if running with a custom path."""
+    targets = [
+        ("race_model.json", MODEL_PATH_JSON),
+        ("race_model.meta.json", MODEL_META_PATH),
+        ("race_model_calibrator.json", CALIBRATOR_PATH_JSON),
+        ("race_model.pkl", MODEL_PATH),
+        ("race_model_calibrator.pkl", CALIBRATOR_PATH),
+    ]
+    for filename, target_path in targets:
+        if not os.path.exists(target_path):
+            src = os.path.join(_DEFAULT_MODEL_DIR, filename)
+            if os.path.exists(src):
+                try:
+                    import shutil
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    shutil.copy2(src, target_path)
+                    print(f"[race_predictor] Copied {filename} to {target_path}")
+                except Exception as e:
+                    print(f"[race_predictor] Could not copy {filename}: {e}")
+
+
+_ensure_models_seeded()
+
+
 
 # WEATHER_FEATURE_COLUMNS and PRACTICE_PACE_FEATURE_COLUMNS appended — see
 # RaceMindAI_Redesign_Phases6-7.md §6.4/§6.5. attach_weather_features() and
@@ -445,6 +470,13 @@ def train_model(historical_df: pd.DataFrame,
 
         with open(CALIBRATOR_PATH, "wb") as f:
             pickle.dump(calibrator, f)
+        try:
+            with open(CALIBRATOR_PATH, "rb") as f:
+                b64_cal = base64.b64encode(f.read()).decode("utf-8")
+            with open(CALIBRATOR_PATH_JSON, "w") as f:
+                json.dump({"calibrator_b64": b64_cal}, f)
+        except Exception as e:
+            print(f"Warning: could not save JSON calibrator ({e})")
 
         y_pred = model.predict(X_final)  # accuracy/classification_report still
         # use the raw classifier's own .predict() threshold behavior, same
@@ -488,6 +520,10 @@ def train_model(historical_df: pd.DataFrame,
         print(f"  {name:28s} {imp:.4f}")
 
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    try:
+        model.save_model(MODEL_PATH_JSON)
+    except Exception as e:
+        print(f"Warning: could not save JSON race model ({e})")
     with open(MODEL_PATH, "wb") as f:
         pickle.dump(model, f)
 
@@ -521,32 +557,49 @@ def train_model(historical_df: pd.DataFrame,
 
 def load_model() -> XGBClassifier:
     """
-    Load the trained model from disk. If no model file exists (e.g. first
-    run on Hugging Face Spaces where .pkl files cannot be committed), raises
-    a clear FileNotFoundError so the caller can trigger a retrain.
+    Load the trained model from disk. Supports native XGBoost JSON format (plain text,
+    fully compatible with Hugging Face Space git pushes) and legacy .pkl files.
     """
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(
-            f"No trained model found at {MODEL_PATH}. "
-            "Click 'Train / Refresh Model' to train it now."
-        )
-    with open(MODEL_PATH, "rb") as f:
-        return pickle.load(f)
+    if not (os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)):
+        _ensure_models_seeded()
+
+    if os.path.exists(MODEL_PATH_JSON):
+        model = XGBClassifier()
+        model.load_model(MODEL_PATH_JSON)
+        return model
+    elif os.path.exists(MODEL_PATH):
+        with open(MODEL_PATH, "rb") as f:
+            return pickle.load(f)
+
+    raise FileNotFoundError(
+        f"No trained model found at {MODEL_PATH_JSON} or {MODEL_PATH}. "
+        "Click 'Train / Refresh Model' to train it now."
+    )
 
 
 def load_calibrator():
     """
-    Loads the saved isotonic calibrator, or returns None if none exists —
-    e.g. a model trained before calibration was added (§6.5), or one
-    trained with too few test races to fit one (see train_model()'s
-    can_calibrate guard). predict_race() treats None as "use raw
-    probabilities", never raises for a missing calibrator — same soft-fail
-    philosophy as this codebase's other optional-artifact handling.
+    Loads the saved isotonic calibrator from JSON or pickle format.
     """
-    if not os.path.exists(CALIBRATOR_PATH):
-        return None
-    with open(CALIBRATOR_PATH, "rb") as f:
-        return pickle.load(f)
+    if not (os.path.exists(CALIBRATOR_PATH_JSON) or os.path.exists(CALIBRATOR_PATH)):
+        _ensure_models_seeded()
+
+    if os.path.exists(CALIBRATOR_PATH_JSON):
+        try:
+            with open(CALIBRATOR_PATH_JSON) as f:
+                d = json.load(f)
+            return pickle.loads(base64.b64decode(d["calibrator_b64"]))
+        except Exception as e:
+            print(f"[race_predictor] Could not load calibrator JSON: {e}")
+
+    if os.path.exists(CALIBRATOR_PATH):
+        try:
+            with open(CALIBRATOR_PATH, "rb") as f:
+                return pickle.load(f)
+        except Exception as e:
+            print(f"[race_predictor] Could not load calibrator pickle: {e}")
+
+    return None
 
 
 def load_or_train_model(historical_df: pd.DataFrame = None) -> XGBClassifier:
@@ -563,10 +616,12 @@ def load_or_train_model(historical_df: pd.DataFrame = None) -> XGBClassifier:
                        is missing, raises RuntimeError with a user-friendly
                        message.
     """
-    if os.path.exists(MODEL_PATH):
-        print(f"Loading existing model from {MODEL_PATH}")
-        with open(MODEL_PATH, "rb") as f:
-            return pickle.load(f)
+    if not (os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)):
+        _ensure_models_seeded()
+
+    if os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH):
+        print(f"Loading existing model from {MODEL_PATH_JSON if os.path.exists(MODEL_PATH_JSON) else MODEL_PATH}")
+        return load_model()
 
     # Model missing — happens on first HF Spaces run or after /tmp reset
     if historical_df is None:
@@ -576,7 +631,7 @@ def load_or_train_model(historical_df: pd.DataFrame = None) -> XGBClassifier:
             "'Train / Refresh Model' in the UI."
         )
 
-    print(f"No model found at {MODEL_PATH} — training now...")
+    print(f"No model found at {MODEL_PATH_JSON} — training now...")
     return train_model(historical_df)
 
 
@@ -585,6 +640,8 @@ def load_model_metadata() -> dict | None:
     (trained_at, years_trained_on, accuracy, etc.), or None if the model
     was trained before this metadata file existed."""
     if not os.path.exists(MODEL_META_PATH):
+        _ensure_models_seeded()
+    if not os.path.exists(MODEL_META_PATH):
         return None
     with open(MODEL_META_PATH) as f:
         return json.load(f)
@@ -592,10 +649,13 @@ def load_model_metadata() -> dict | None:
 
 def model_exists() -> bool:
     """Returns True if a trained model file exists on disk."""
-    return os.path.exists(MODEL_PATH)
+    if not (os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)):
+        _ensure_models_seeded()
+    return os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)
 
 
-def model_is_stale(max_age_days: int = 7) -> bool:
+
+def model_is_stale(max_age_days: int = 90) -> bool:
     """
     Returns True if the saved model is older than max_age_days, OR if no
     metadata exists at all (e.g. very first run, or a model trained before

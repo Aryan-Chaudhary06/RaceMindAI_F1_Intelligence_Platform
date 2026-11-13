@@ -1,18 +1,22 @@
 data/cache/
-data/race_model.pkl
 *.ff1pkl
 *.sqlite
-*.pkl
 __pycache__/
 *.pyc
 .env
 Secondary frontend
+
 # Backend
 backend/**/__pycache__/
 backend/**/*.pyc
-backend/data/*.pkl
-backend/data/*.json
+backend/data/cache/
 backend/.env
+
+# Allow pre-trained JSON models and metadata to be tracked, ignore binary .pkl
+*.pkl
+backend/data/*.pkl
+!backend/data/*.json
+
 
 # Frontend
 frontend/node_modules/

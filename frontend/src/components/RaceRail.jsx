@@ -142,6 +142,9 @@ function PodiumGraphic({ results }) {
   );
 }
 
+// Client-side cache so scrolling back and forth or switching pages does not re-fetch past podiums
+const clientPodiumCache = new Map();
+
 function RaceCard({ race, index, year }) {
   // API schedule rows use "gp_name" (Ergast raceName); mock fallback data
   // uses "raceName" — support both so this works before/after the API loads.
@@ -154,13 +157,8 @@ function RaceCard({ race, index, year }) {
   const color = Object.values(TEAM_COLORS)[index % Object.keys(TEAM_COLORS).length];
 
   const isPast = race.date ? new Date(race.date) < new Date() : false;
+  const cacheKey = `${year}-${gpName}`;
 
-  // Only start fetching once a card has actually scrolled near the
-  // viewport — for past races this avoids firing 10+ uncached FastF1
-  // session loads at once; for upcoming races it avoids firing 10+ ML
-  // predictions (each of which rebuilds features from historical results)
-  // at once. Either way, staggering real demand instead of a thundering
-  // herd on mount.
   const cardRef = useRef(null);
   const [isNearView, setIsNearView] = useState(false);
   useEffect(() => {
@@ -172,34 +170,34 @@ function RaceCard({ race, index, year }) {
           observer.disconnect();
         }
       },
-      { root: null, rootMargin: "600px", threshold: 0.01 }
+      { root: null, rootMargin: "800px", threshold: 0.01 }
     );
     observer.observe(cardRef.current);
     return () => observer.disconnect();
   }, [isNearView]);
 
-  // null = not fetched yet / loading, [] = fetch completed but no podium
-  // data (a genuine failure — never silently swapped back to circuit art,
-  // since that looks identical to an upcoming race and hides the problem).
-  const [podium, setPodium] = useState(null);
+  const [podium, setPodium] = useState(() => clientPodiumCache.get(cacheKey) || null);
   useEffect(() => {
-    if (!isPast || !isNearView || !gpName) return;
+    if (!isPast || !isNearView || !gpName || clientPodiumCache.has(cacheKey)) return;
     let cancelled = false;
-    setPodium(null);
     getRaceResults(year, gpName)
       .then((results) => {
         if (cancelled || !Array.isArray(results)) return;
         const top3 = results
           .filter((r) => [1, 2, 3].includes(Number(r.Position)))
           .sort((a, b) => Number(a.Position) - Number(b.Position));
+        clientPodiumCache.set(cacheKey, top3);
         setPodium(top3);
       })
       .catch((err) => {
         console.error(`RaceRail: failed to load results for "${gpName}" (${year}):`, err);
-        if (!cancelled) setPodium([]);
+        if (!cancelled) {
+          clientPodiumCache.set(cacheKey, []);
+          setPodium([]);
+        }
       });
     return () => { cancelled = true; };
-  }, [isPast, isNearView, gpName, year]);
+  }, [isPast, isNearView, gpName, year, cacheKey]);
 
   return (
     <div className="race-card" ref={cardRef}>
@@ -208,7 +206,7 @@ function RaceCard({ race, index, year }) {
 
       <div className="rc-visual">
         {!isPast ? (
-          isNearView ? <CircuitMap circuitName={race.circuit} mini /> : <div className="rc-podium-loading">Loading circuit…</div>
+          <CircuitMap circuitName={race.circuit} mini />
         ) : podium === null ? (
           <div className="rc-podium-loading">Loading results…</div>
         ) : podium.length === 0 ? (

@@ -31,15 +31,64 @@ def get_lap_times(year: int, gp: str, session_type: str = "R") -> pd.DataFrame:
     laps = laps.drop(columns=["LapTime"])
     return laps.reset_index(drop=True)
 
+_RACE_RESULTS_CACHE = {}
+
 def get_race_results(year: int, gp: str) -> pd.DataFrame:
-    """Returns final race results with positions and points."""
-    session = get_session(year, gp, "R")
-    results = session.results[["DriverNumber", "Abbreviation", "FullName",
-                                "TeamName", "Position", "Points",
-                                "GridPosition", "Status"]].copy()
-    results["Year"] = year
-    results["GP"] = gp
-    return results.reset_index(drop=True)
+    """Returns final race results with positions and points. Cached in memory for speed."""
+    cache_key = (year, str(gp).lower().strip())
+    if cache_key in _RACE_RESULTS_CACHE:
+        return _RACE_RESULTS_CACHE[cache_key].copy()
+
+    # Try FastF1 with minimal payload first (laps=False, telemetry=False, weather=False)
+    try:
+        session = fastf1.get_session(year, gp, "R")
+        session.load(telemetry=False, weather=False, messages=False, laps=False)
+        if session.results is not None and not session.results.empty:
+            results = session.results[["DriverNumber", "Abbreviation", "FullName",
+                                        "TeamName", "Position", "Points",
+                                        "GridPosition", "Status"]].copy()
+            results["Year"] = year
+            results["GP"] = gp
+            df = results.reset_index(drop=True)
+            _RACE_RESULTS_CACHE[cache_key] = df
+            return df
+    except Exception as e:
+        print(f"[fastf1_client] FastF1 fast load failed for {year} {gp}: {e}")
+
+    # Fallback to Jolpica if FastF1 fails or session is not cached on FastF1
+    try:
+        from app.data.ergast_client import _get_jolpica, get_season_schedule
+        sched = get_season_schedule(year)
+        gp_clean = str(gp).lower().replace("grand prix", "").replace("gp", "").strip()
+        match = sched[sched["gp_name"].str.lower().str.contains(gp_clean[:5])]
+        if not match.empty:
+            rnd = int(match.iloc[0]["round"])
+            data = _get_jolpica(f"{year}/{rnd}/results")
+            races = data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+            if races and "Results" in races[0]:
+                rows = []
+                for r in races[0]["Results"]:
+                    rows.append({
+                        "DriverNumber": r.get("number", "—"),
+                        "Abbreviation": r["Driver"].get("code", r["Driver"]["familyName"][:3].upper()),
+                        "FullName": f"{r['Driver']['givenName']} {r['Driver']['familyName']}",
+                        "TeamName": r["Constructor"]["name"],
+                        "Position": int(r["position"]),
+                        "Points": float(r.get("points", 0)),
+                        "GridPosition": int(r.get("grid", 0)),
+                        "Status": r.get("status", "Finished"),
+                        "Year": year,
+                        "GP": gp,
+                    })
+                df = pd.DataFrame(rows)
+                if not df.empty:
+                    _RACE_RESULTS_CACHE[cache_key] = df
+                    return df
+    except Exception as e2:
+        print(f"[fastf1_client] Jolpica results fallback failed for {year} {gp}: {e2}")
+
+    return pd.DataFrame()
+
 
 def get_driver_telemetry(year: int, gp: str, driver: str,
                           lap_number: int = None) -> pd.DataFrame:

@@ -128,13 +128,33 @@ def _get_jolpica_paginated(endpoint: str) -> list:
 # round" or "a full season" for any of those years.
 MIN_PLAUSIBLE_ROUNDS_FOR_COMPLETE_SEASON = 15
 
+import time
+
+_TTL_CACHE = {}  # key -> (expires_at, df)
+
+def _get_from_ttl_cache(key: str):
+    if key in _TTL_CACHE:
+        expires_at, val = _TTL_CACHE[key]
+        if time.time() < expires_at:
+            return val.copy()
+    return None
+
+def _set_in_ttl_cache(key: str, val: pd.DataFrame, ttl_seconds: int = 3600):
+    if val is not None and not val.empty:
+        _TTL_CACHE[key] = (time.time() + ttl_seconds, val.copy())
+
 def _cache_looks_incomplete(cached_df: pd.DataFrame) -> bool:
     if cached_df is None or cached_df.empty or "round" not in cached_df.columns:
         return True
     return cached_df["round"].nunique() < MIN_PLAUSIBLE_ROUNDS_FOR_COMPLETE_SEASON
 
 def get_season_schedule(year: int) -> pd.DataFrame:
-    """Returns the full race schedule for a season."""
+    """Returns the full race schedule for a season (cached in memory for 2 hours)."""
+    cache_key = f"schedule_{year}"
+    cached = _get_from_ttl_cache(cache_key)
+    if cached is not None:
+        return cached
+
     data = _get_jolpica(f"{year}")
     races = data["MRData"]["RaceTable"]["Races"]
     rows = []
@@ -154,10 +174,17 @@ def get_season_schedule(year: int) -> pd.DataFrame:
             # §6.4 point 1.
             "time": r.get("time"),
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    _set_in_ttl_cache(cache_key, df, ttl_seconds=7200)
+    return df
 
 def get_driver_standings(year: int, round_num: int = None) -> pd.DataFrame:
-    """Returns driver championship standings."""
+    """Returns driver championship standings (cached in memory for 15 minutes)."""
+    cache_key = f"driver_standings_{year}_{round_num}"
+    cached = _get_from_ttl_cache(cache_key)
+    if cached is not None:
+        return cached
+
     endpoint = f"{year}/driverStandings" if round_num is None \
                else f"{year}/{round_num}/driverStandings"
     data = _get_jolpica(endpoint)
@@ -174,10 +201,17 @@ def get_driver_standings(year: int, round_num: int = None) -> pd.DataFrame:
             "points": float(s["points"]),
             "wins": int(s["wins"]),
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    _set_in_ttl_cache(cache_key, df, ttl_seconds=900)
+    return df
 
 def get_constructor_standings(year: int, round_num: int = None) -> pd.DataFrame:
-    """Returns constructor championship standings."""
+    """Returns constructor championship standings (cached in memory for 15 minutes)."""
+    cache_key = f"constructor_standings_{year}_{round_num}"
+    cached = _get_from_ttl_cache(cache_key)
+    if cached is not None:
+        return cached
+
     endpoint = f"{year}/constructorStandings" if round_num is None \
                else f"{year}/{round_num}/constructorStandings"
     data = _get_jolpica(endpoint)

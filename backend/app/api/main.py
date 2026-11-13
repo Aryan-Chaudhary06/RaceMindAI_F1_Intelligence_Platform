@@ -12,7 +12,7 @@ import datetime
 from typing import Optional, List
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
@@ -136,6 +136,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_cache_headers(request: Request, call_next):
+    """Adds efficient browser & CDN cache headers for read-heavy F1 endpoints."""
+    response = await call_next(request)
+    if request.method == "GET" and response.status_code == 200:
+        path = request.url.path
+        if "/api/schedule/" in path or "/api/predictor/grid-defaults/" in path:
+            response.headers["Cache-Control"] = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+        elif "/api/standings/" in path:
+            response.headers["Cache-Control"] = "public, max-age=600, s-maxage=1800, stale-while-revalidate=86400"
+        elif "/api/race-analysis/results" in path or "/api/results/" in path:
+            response.headers["Cache-Control"] = "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000"
+        elif "/api/driver-dynamics" in path:
+            response.headers["Cache-Control"] = "public, max-age=1800, s-maxage=7200, stale-while-revalidate=86400"
+        elif "/api/predictor/status" in path or "/api/qualifying/status" in path:
+            response.headers["Cache-Control"] = "public, max-age=300, s-maxage=600, stale-while-revalidate=3600"
+    return response
+
+
+@app.on_event("startup")
+def startup_prewarm():
+    """Warm up ML models and schedule cache on container boot for instantaneous first responses."""
+    try:
+        print("[startup] Pre-warming models and schedule cache...")
+        _get_model()
+        _get_quali_model()
+        from app.data.ergast_client import get_season_schedule
+        get_season_schedule(2026)
+        print("[startup] Warm-up complete! RaceMind AI is ready.")
+    except Exception as e:
+        print(f"[startup] Warm-up notice: {e}")
+
 
 TRAIN_YEAR_START, TRAIN_YEAR_END = 2022, 2026
 

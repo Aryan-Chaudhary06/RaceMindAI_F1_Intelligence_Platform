@@ -32,16 +32,39 @@ export default function Hero() {
   };
   const handleMouseLeave = () => { mx.set(0); my.set(0); };
 
-  // ── Live model status ────────────────────────────────────────────────
-  const [status, setStatus] = useState(null);
-  const [standings, setStandings] = useState([]);
-  const [schedule, setSchedule] = useState([]);
+  // ── Live model status & data (hydrated from session cache for instant 0ms render) ──
+  const [status, setStatus] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("rm_status") || "null"); } catch { return null; }
+  });
+  const [standings, setStandings] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("rm_standings") || "[]"); } catch { return []; }
+  });
+  const [schedule, setSchedule] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("rm_schedule") || "[]"); } catch { return []; }
+  });
 
   useEffect(() => {
-    getPredictorStatus().then(setStatus).catch(() => {});
-    getDriverStandings(2026).then(d => setStandings(d.slice(0, 3))).catch(() => {});
+    getPredictorStatus()
+      .then((s) => {
+        setStatus(s);
+        try { sessionStorage.setItem("rm_status", JSON.stringify(s)); } catch {}
+      })
+      .catch(() => {});
+
+    getDriverStandings(2026)
+      .then((d) => {
+        const top3 = d.slice(0, 3);
+        setStandings(top3);
+        try { sessionStorage.setItem("rm_standings", JSON.stringify(top3)); } catch {}
+      })
+      .catch(() => {});
+
     getSchedule(2026)
-      .then((rows) => setSchedule([...rows].sort((a, b) => a.round - b.round)))
+      .then((rows) => {
+        const sorted = [...rows].sort((a, b) => a.round - b.round);
+        setSchedule(sorted);
+        try { sessionStorage.setItem("rm_schedule", JSON.stringify(sorted)); } catch {}
+      })
       .catch(() => {});
   }, []);
 

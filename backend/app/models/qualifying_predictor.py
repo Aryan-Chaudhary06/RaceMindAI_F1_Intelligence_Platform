@@ -14,8 +14,34 @@ _DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(__file__), "../../data")
 MODEL_DIR = os.getenv("MODEL_DIR", _DEFAULT_MODEL_DIR)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
+MODEL_PATH_JSON = os.path.join(MODEL_DIR, "qualifying_model.json")
 MODEL_PATH = os.path.join(MODEL_DIR, "qualifying_model.pkl")
 MODEL_META_PATH = os.path.join(MODEL_DIR, "qualifying_model.meta.json")
+
+
+def _ensure_qualifying_models_seeded():
+    """Ensure bundled qualifying models in _DEFAULT_MODEL_DIR are copied to MODEL_DIR if running with a custom path."""
+    targets = [
+        ("qualifying_model.json", MODEL_PATH_JSON),
+        ("qualifying_model.meta.json", MODEL_META_PATH),
+        ("qualifying_model.pkl", MODEL_PATH),
+    ]
+    for filename, target_path in targets:
+        if not os.path.exists(target_path):
+            src = os.path.join(_DEFAULT_MODEL_DIR, filename)
+            if os.path.exists(src):
+                try:
+                    import shutil
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    shutil.copy2(src, target_path)
+                    print(f"[qualifying_predictor] Copied {filename} to {target_path}")
+                except Exception as e:
+                    print(f"[qualifying_predictor] Could not copy {filename}: {e}")
+
+
+_ensure_qualifying_models_seeded()
+
+
 
 # `is_wet` (was always a constant 0 — see qualifying_feature_engineering.py)
 # replaced by WEATHER_FEATURE_COLUMNS, attached separately via
@@ -181,9 +207,18 @@ def train_qualifying_model(historical_quali_df: pd.DataFrame,
           f"({pole_correct}/{total_sessions} sessions)")
     print(f"Top-3 overlap (>=2 of 3 correct): {top3_accuracy:.1%}")
 
-    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-    with open(MODEL_PATH, "wb") as f:
-        pickle.dump(model, f)
+    os.makedirs(os.path.dirname(MODEL_PATH_JSON), exist_ok=True)
+    try:
+        model.save_model(MODEL_PATH_JSON)
+        print(f"Qualifying model saved to {MODEL_PATH_JSON}")
+    except Exception as e:
+        print(f"[qualifying_predictor] Could not save json model: {e}")
+
+    try:
+        with open(MODEL_PATH, "wb") as f:
+            pickle.dump(model, f)
+    except Exception as e:
+        print(f"[qualifying_predictor] Could not save pkl model: {e}")
 
     years_in_training = sorted(df["year"].unique().tolist())
     with open(MODEL_META_PATH, "w") as f:
@@ -198,20 +233,30 @@ def train_qualifying_model(historical_quali_df: pd.DataFrame,
             "era_weights": era_weights or REGULATION_ERA_WEIGHTS,
         }, f, indent=2)
 
-    print(f"Qualifying model saved to {MODEL_PATH}")
     return model
 
 
 def load_qualifying_model() -> XGBRanker:
-    """Loads the trained qualifying ranker from disk. Raises a clear
-    FileNotFoundError if missing (e.g. first run on HF Spaces)."""
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(
-            f"No trained qualifying model found at {MODEL_PATH}. "
-            "Train it first from the Qualifying Predictor page."
-        )
-    with open(MODEL_PATH, "rb") as f:
-        return pickle.load(f)
+    """Loads the trained qualifying ranker from disk. Prefers JSON over PKL."""
+    if not (os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)):
+        _ensure_qualifying_models_seeded()
+
+    if os.path.exists(MODEL_PATH_JSON):
+        try:
+            ranker = XGBRanker()
+            ranker.load_model(MODEL_PATH_JSON)
+            return ranker
+        except Exception as e:
+            print(f"[qualifying_predictor] Error loading {MODEL_PATH_JSON}: {e}")
+
+    if os.path.exists(MODEL_PATH):
+        with open(MODEL_PATH, "rb") as f:
+            return pickle.load(f)
+
+    raise FileNotFoundError(
+        f"No trained qualifying model found at {MODEL_PATH_JSON} or {MODEL_PATH}. "
+        "Train it first from the Qualifying Predictor page."
+    )
 
 
 def load_or_train_qualifying_model(historical_quali_df: pd.DataFrame = None) -> XGBRanker:
@@ -220,9 +265,14 @@ def load_or_train_qualifying_model(historical_quali_df: pd.DataFrame = None) -> 
     race_predictor.load_or_train_model() — loads the saved ranker if it
     exists, otherwise trains a fresh one from historical_quali_df.
     """
-    if os.path.exists(MODEL_PATH):
-        with open(MODEL_PATH, "rb") as f:
-            return pickle.load(f)
+    if not (os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)):
+        _ensure_qualifying_models_seeded()
+
+    if os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH):
+        try:
+            return load_qualifying_model()
+        except Exception as e:
+            print(f"[qualifying_predictor] Could not load existing qualifying model: {e}")
 
     if historical_quali_df is None:
         raise RuntimeError(
@@ -230,22 +280,26 @@ def load_or_train_qualifying_model(historical_quali_df: pd.DataFrame = None) -> 
             "provided. Pass historical_quali_df, or train from the UI."
         )
 
-    print(f"No qualifying model found at {MODEL_PATH} — training now...")
+    print(f"No qualifying model found at {MODEL_PATH_JSON} — training now...")
     return train_qualifying_model(historical_quali_df)
 
 
 def qualifying_model_exists() -> bool:
-    return os.path.exists(MODEL_PATH)
+    if not (os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)):
+        _ensure_qualifying_models_seeded()
+    return os.path.exists(MODEL_PATH_JSON) or os.path.exists(MODEL_PATH)
 
 
 def load_qualifying_model_metadata() -> dict | None:
+    if not os.path.exists(MODEL_META_PATH):
+        _ensure_qualifying_models_seeded()
     if not os.path.exists(MODEL_META_PATH):
         return None
     with open(MODEL_META_PATH) as f:
         return json.load(f)
 
 
-def qualifying_model_is_stale(max_age_days: int = 7) -> bool:
+def qualifying_model_is_stale(max_age_days: int = 90) -> bool:
     meta = load_qualifying_model_metadata()
     if meta is None:
         return True

@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Ensure data and cache directories exist and are writable by non-root user (HF Spaces runs as user 1000)
+RUN mkdir -p /app/data /tmp && chmod -R 777 /app/data /tmp
+
 # Hugging Face Spaces (Docker SDK) requires the app to listen on port 7860
 ENV MODEL_DIR=/tmp
 EXPOSE 7860

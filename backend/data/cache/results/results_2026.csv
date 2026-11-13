@@ -111,11 +111,11 @@ year,round,gp_name,circuit,driver,constructor,grid,position,points,status,laps
 2026,5,Canadian Grand Prix,Circuit Gilles Villeneuve,LIN,RB F1 Team,9,22,0.0,Did not start,0
 2026,6,Monaco Grand Prix,Circuit de Monaco,ANT,Mercedes,1,1,25.0,Finished,78
 2026,6,Monaco Grand Prix,Circuit de Monaco,HAM,Ferrari,3,2,18.0,Finished,78
-2026,6,Monaco Grand Prix,Circuit de Monaco,GAS,Alpine F1 Team,9,3,15.0,Finished,78
-2026,6,Monaco Grand Prix,Circuit de Monaco,HAD,Red Bull,5,4,12.0,Finished,78
-2026,6,Monaco Grand Prix,Circuit de Monaco,PIA,McLaren,7,5,10.0,Finished,78
-2026,6,Monaco Grand Prix,Circuit de Monaco,LAW,RB F1 Team,10,6,8.0,Finished,78
-2026,6,Monaco Grand Prix,Circuit de Monaco,LIN,RB F1 Team,15,7,6.0,Finished,78
+2026,6,Monaco Grand Prix,Circuit de Monaco,HAD,Red Bull,5,3,15.0,Finished,78
+2026,6,Monaco Grand Prix,Circuit de Monaco,PIA,McLaren,7,4,12.0,Finished,78
+2026,6,Monaco Grand Prix,Circuit de Monaco,LAW,RB F1 Team,10,5,10.0,Finished,78
+2026,6,Monaco Grand Prix,Circuit de Monaco,LIN,RB F1 Team,15,6,8.0,Finished,78
+2026,6,Monaco Grand Prix,Circuit de Monaco,GAS,Alpine F1 Team,9,7,6.0,Finished,78
 2026,6,Monaco Grand Prix,Circuit de Monaco,ALB,Williams,11,8,4.0,Finished,78
 2026,6,Monaco Grand Prix,Circuit de Monaco,OCO,Haas F1 Team,17,9,2.0,Finished,78
 2026,6,Monaco Grand Prix,Circuit de Monaco,ALO,Aston Martin,21,10,1.0,Finished,78
@@ -197,3 +197,245 @@ year,round,gp_name,circuit,driver,constructor,grid,position,points,status,laps
 2026,9,British Grand Prix,Silverstone Circuit,VER,Red Bull,7,20,0.0,Retired,46
 2026,9,British Grand Prix,Silverstone Circuit,ALB,Williams,16,21,0.0,Retired,43
 2026,9,British Grand Prix,Silverstone Circuit,HUL,Audi,12,22,0.0,Retired,36
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,ANT,Mercedes,1,1,25.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,LEC,Ferrari,4,2,18.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,VER,Red Bull,2,3,15.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,HAM,Ferrari,5,4,12.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,PIA,McLaren,6,5,10.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,HAD,Red Bull,21,6,8.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,NOR,McLaren,13,7,6.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,BOR,Audi,8,8,4.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,LIN,RB F1 Team,7,9,2.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,COL,Alpine F1 Team,11,10,1.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,GAS,Alpine F1 Team,10,11,0.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,LAW,RB F1 Team,9,12,0.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,HUL,Audi,12,13,0.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,BEA,Haas F1 Team,14,14,0.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,ALB,Williams,15,15,0.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,SAI,Williams,19,16,0.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,OCO,Haas F1 Team,16,17,0.0,Finished,44
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,BOT,Cadillac F1 Team,17,18,0.0,Lapped,43
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,ALO,Aston Martin,22,19,0.0,Lapped,42
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,STR,Aston Martin,20,20,0.0,Retired,25
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,PER,Cadillac F1 Team,18,21,0.0,Retired,13
+2026,10,Belgian Grand Prix,Circuit de Spa-Francorchamps,RUS,Mercedes,3,22,0.0,Retired,0
+2026,11,Hungarian Grand Prix,Hungaroring,NOR,McLaren,1,1,25.0,Finished,70
+2026,11,Hungarian Grand Prix,Hungaroring,VER,Red Bull,4,2,18.0,Finished,70
+2026,11,Hungarian Grand Prix,Hungaroring,ANT,Mercedes,7,3,15.0,Finished,70
+2026,11,Hungarian Grand Prix,Hungaroring,LEC,Ferrari,2,4,12.0,Finished,70
+2026,11,Hungarian Grand Prix,Hungaroring,HAM,Ferrari,5,5,10.0,Finished,70
+2026,11,Hungarian Grand Prix,Hungaroring,HAD,Red Bull,8,6,8.0,Finished,70
+2026,11,Hungarian Grand Prix,Hungaroring,RUS,Mercedes,6,7,6.0,Finished,70
+2026,11,Hungarian Grand Prix,Hungaroring,LAW,RB F1 Team,11,8,4.0,Lapped,69
+2026,11,Hungarian Grand Prix,Hungaroring,HUL,Audi,10,9,2.0,Lapped,69
+2026,11,Hungarian Grand Prix,Hungaroring,LIN,RB F1 Team,9,10,1.0,Lapped,69
+2026,11,Hungarian Grand Prix,Hungaroring,BOR,Audi,14,11,0.0,Lapped,69
+2026,11,Hungarian Grand Prix,Hungaroring,GAS,Alpine F1 Team,12,12,0.0,Lapped,69
+2026,11,Hungarian Grand Prix,Hungaroring,STR,Aston Martin,20,13,0.0,Lapped,69
+2026,11,Hungarian Grand Prix,Hungaroring,ALO,Aston Martin,16,14,0.0,Lapped,69
+2026,11,Hungarian Grand Prix,Hungaroring,COL,Alpine F1 Team,13,15,0.0,Lapped,68
+2026,11,Hungarian Grand Prix,Hungaroring,OCO,Haas F1 Team,15,16,0.0,Lapped,68
+2026,11,Hungarian Grand Prix,Hungaroring,ALB,Williams,19,17,0.0,Lapped,68
+2026,11,Hungarian Grand Prix,Hungaroring,SAI,Williams,18,18,0.0,Lapped,68
+2026,11,Hungarian Grand Prix,Hungaroring,BEA,Haas F1 Team,17,19,0.0,Lapped,68
+2026,11,Hungarian Grand Prix,Hungaroring,PIA,McLaren,3,20,0.0,Retired,55
+2026,11,Hungarian Grand Prix,Hungaroring,PER,Cadillac F1 Team,22,21,0.0,Retired,48
+2026,11,Hungarian Grand Prix,Hungaroring,BOT,Cadillac F1 Team,21,22,0.0,Retired,13
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,NOR,McLaren,1,1,25.0,Finished,72
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,ANT,Mercedes,3,2,18.0,Finished,72
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,RUS,Mercedes,2,3,15.0,Finished,72
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,HAM,Ferrari,5,4,12.0,Finished,72
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,LEC,Ferrari,6,5,10.0,Finished,72
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,PIA,McLaren,4,6,8.0,Finished,72
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,LAW,Red Bull,8,7,6.0,Finished,72
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,HUL,Audi,13,8,4.0,Lapped,71
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,ALO,Aston Martin,18,9,2.0,Lapped,71
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,GAS,Alpine F1 Team,11,10,1.0,Lapped,71
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,TSU,RB F1 Team,12,11,0.0,Lapped,71
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,LIN,RB F1 Team,10,12,0.0,Lapped,71
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,BOR,Audi,9,13,0.0,Lapped,71
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,COL,Alpine F1 Team,14,14,0.0,Lapped,70
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,PER,Cadillac F1 Team,22,15,0.0,Lapped,70
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,SAI,Williams,17,16,0.0,Lapped,70
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,ALB,Williams,16,17,0.0,Retired,66
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,BOT,Cadillac F1 Team,21,18,0.0,Retired,61
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,OCO,Haas F1 Team,15,19,0.0,Retired,52
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,STR,Aston Martin,19,20,0.0,Retired,45
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,BEA,Haas F1 Team,20,21,0.0,Retired,2
+2026,12,Dutch Grand Prix,Circuit Park Zandvoort,VER,Red Bull,7,22,0.0,Retired,0
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,ANT,Mercedes,19,1,25.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,RUS,Mercedes,2,2,18.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,VER,Red Bull,5,3,15.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,NOR,McLaren,8,4,12.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,PIA,McLaren,6,5,10.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,HAM,Ferrari,4,6,8.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,GAS,Alpine F1 Team,1,7,6.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,LIN,RB F1 Team,9,8,4.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,COL,Alpine F1 Team,7,9,2.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,TSU,RB F1 Team,15,10,1.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,BOR,Audi,10,11,0.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,HUL,Audi,12,12,0.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,SAI,Williams,13,13,0.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,LAW,Red Bull,22,14,0.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,BEA,Haas F1 Team,11,15,0.0,Finished,53
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,OCO,Haas F1 Team,14,16,0.0,Lapped,52
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,ALB,Williams,20,17,0.0,Lapped,52
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,PER,Cadillac F1 Team,17,18,0.0,Lapped,52
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,BOT,Cadillac F1 Team,16,19,0.0,Lapped,51
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,STR,Aston Martin,18,20,0.0,Retired,26
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,ALO,Aston Martin,21,21,0.0,Retired,23
+2026,13,Italian Grand Prix,Autodromo Nazionale di Monza,LEC,Ferrari,3,22,0.0,Retired,1
+2026,14,Spanish Grand Prix,Madring,ANT,Mercedes,2,1,25.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,VER,Red Bull,3,2,18.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,NOR,McLaren,1,3,15.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,LEC,Ferrari,5,4,12.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,RUS,Mercedes,6,5,10.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,LAW,Red Bull,8,6,8.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,COL,Alpine F1 Team,9,7,6.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,PIA,McLaren,7,8,4.0,Finished,57
+2026,14,Spanish Grand Prix,Madring,LIN,RB F1 Team,10,9,2.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,HUL,Audi,11,10,1.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,OCO,Haas F1 Team,13,11,0.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,GAS,Alpine F1 Team,14,12,0.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,BOR,Audi,12,13,0.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,TSU,RB F1 Team,15,14,0.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,ALB,Williams,16,15,0.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,BEA,Haas F1 Team,22,16,0.0,Lapped,56
+2026,14,Spanish Grand Prix,Madring,ALO,Aston Martin,17,17,0.0,Lapped,55
+2026,14,Spanish Grand Prix,Madring,BOT,Cadillac F1 Team,19,18,0.0,Lapped,54
+2026,14,Spanish Grand Prix,Madring,SAI,Williams,20,19,0.0,Retired,43
+2026,14,Spanish Grand Prix,Madring,PER,Cadillac F1 Team,18,20,0.0,Retired,31
+2026,14,Spanish Grand Prix,Madring,STR,Aston Martin,21,21,0.0,Retired,12
+2026,14,Spanish Grand Prix,Madring,HAM,Ferrari,4,22,0.0,Retired,6
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,RUS,Mercedes,1,1,25.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,VER,Red Bull,8,2,18.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,HAD,Red Bull,4,3,15.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,LEC,Ferrari,2,4,12.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,ANT,Mercedes,16,5,10.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,HAM,Ferrari,6,6,8.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,LIN,RB F1 Team,15,7,6.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,OCO,Haas F1 Team,13,8,4.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,BEA,Haas F1 Team,10,9,2.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,SAI,Williams,14,10,1.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,HUL,Audi,18,11,0.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,LAW,RB F1 Team,11,12,0.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,PIA,McLaren,3,13,0.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,PER,Cadillac F1 Team,20,14,0.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,BOR,Audi,17,15,0.0,Finished,51
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,BOT,Cadillac F1 Team,19,16,0.0,Retired,49
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,COL,Alpine F1 Team,9,17,0.0,Retired,36
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,GAS,Alpine F1 Team,7,18,0.0,Retired,35
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,NOR,McLaren,5,19,0.0,Retired,35
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,ALB,Williams,12,20,0.0,Retired,29
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,ALO,Aston Martin,21,21,0.0,Retired,20
+2026,15,Azerbaijan Grand Prix,Baku City Circuit,STR,Aston Martin,22,22,0.0,Retired,7
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,VER,Red Bull,1,1,25.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,ANT,Mercedes,3,2,18.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,HAM,Ferrari,2,3,15.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,LEC,Ferrari,4,4,12.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,HAD,Red Bull,8,5,10.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,PIA,McLaren,6,6,8.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,LAW,RB F1 Team,11,7,6.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,ALO,Aston Martin,12,8,4.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,NOR,McLaren,5,9,2.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,LIN,RB F1 Team,22,10,1.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,HUL,Audi,15,11,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,STR,Aston Martin,14,12,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,COL,Alpine F1 Team,21,13,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,BEA,Haas F1 Team,16,14,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,OCO,Haas F1 Team,17,15,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,GAS,Alpine F1 Team,9,16,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,SAI,Williams,13,17,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,BOR,Audi,10,18,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,PER,Cadillac F1 Team,20,19,0.0,Finished,55
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,RUS,Mercedes,7,20,0.0,Retired,49
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,ALB,Williams,18,21,0.0,Retired,41
+2026,16,Bahrain Grand Prix in Malaysia,Sepang International Circuit,BOT,Cadillac F1 Team,19,22,0.0,Retired,7
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,VER,Red Bull,1,1,25.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,LEC,Ferrari,2,2,18.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,ANT,Mercedes,4,3,15.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,NOR,McLaren,5,4,12.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,PIA,McLaren,6,5,10.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,HAM,Ferrari,3,6,8.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,LAW,RB F1 Team,8,7,6.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,HUL,Audi,10,8,4.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,RUS,Mercedes,19,9,2.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,HAD,Red Bull,22,10,1.0,Finished,62
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,GAS,Alpine F1 Team,7,11,0.0,Lapped,61
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,BEA,Haas F1 Team,11,12,0.0,Lapped,61
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,OCO,Haas F1 Team,12,13,0.0,Lapped,61
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,SAI,Williams,13,14,0.0,Lapped,61
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,LIN,RB F1 Team,9,15,0.0,Lapped,61
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,ALO,Aston Martin,20,16,0.0,Lapped,61
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,PER,Cadillac F1 Team,17,17,0.0,Lapped,60
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,ALB,Williams,16,18,0.0,Retired,59
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,BOT,Cadillac F1 Team,18,19,0.0,Lapped,59
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,STR,Aston Martin,21,20,0.0,Retired,36
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,COL,Alpine F1 Team,15,21,0.0,Retired,29
+2026,17,Singapore Grand Prix,Marina Bay Street Circuit,BOR,Audi,14,22,0.0,Retired,7
+2026,18,United States Grand Prix,Circuit of the Americas,ANT,Mercedes,1,1,25.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,LEC,Ferrari,4,2,18.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,VER,Red Bull,2,3,15.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,HAM,Ferrari,5,4,12.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,NOR,McLaren,8,5,10.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,HAD,Red Bull,3,6,8.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,PIA,McLaren,7,7,6.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,RUS,Mercedes,6,8,4.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,LAW,RB F1 Team,9,9,2.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,GAS,Alpine F1 Team,10,10,1.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,HUL,Audi,11,11,0.0,Finished,56
+2026,18,United States Grand Prix,Circuit of the Americas,LIN,RB F1 Team,14,12,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,BOR,Audi,21,13,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,OCO,Haas F1 Team,15,14,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,STR,Aston Martin,22,15,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,ALO,Aston Martin,12,16,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,ALB,Williams,17,17,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,SAI,Williams,16,18,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,PER,Cadillac F1 Team,18,19,0.0,Lapped,55
+2026,18,United States Grand Prix,Circuit of the Americas,BOT,Cadillac F1 Team,19,20,0.0,Retired,48
+2026,18,United States Grand Prix,Circuit of the Americas,COL,Alpine F1 Team,20,21,0.0,Retired,35
+2026,18,United States Grand Prix,Circuit of the Americas,BEA,Haas F1 Team,13,22,0.0,Retired,24
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,VER,Red Bull,5,1,25.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,HAM,Ferrari,1,2,18.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,ANT,Mercedes,4,3,15.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,LEC,Ferrari,3,4,12.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,NOR,McLaren,6,5,10.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,RUS,Mercedes,2,6,8.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,LAW,RB F1 Team,22,7,6.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,BOR,Audi,13,8,4.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,HAD,Red Bull,7,9,2.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,HIR,Haas F1 Team,18,10,1.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,ALB,Williams,16,11,0.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,SAI,Williams,15,12,0.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,PIA,McLaren,12,13,0.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,HUL,Audi,10,14,0.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,COL,Alpine F1 Team,11,15,0.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,PER,Cadillac F1 Team,20,16,0.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,GAS,Alpine F1 Team,9,17,0.0,Finished,71
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,LIN,RB F1 Team,8,18,0.0,Retired,58
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,BEA,Haas F1 Team,14,19,0.0,Retired,47
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,BOT,Cadillac F1 Team,21,20,0.0,Retired,42
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,STR,Aston Martin,19,21,0.0,Retired,5
+2026,19,Mexico City Grand Prix,Autódromo Hermanos Rodríguez,ALO,Aston Martin,17,22,0.0,Retired,5
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,NOR,McLaren,1,1,25.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,VER,Red Bull,21,2,18.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,HAD,Red Bull,5,3,15.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,RUS,Mercedes,7,4,12.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,ANT,Mercedes,2,5,10.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,PIA,McLaren,10,6,8.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,LAW,RB F1 Team,3,7,6.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,LEC,Ferrari,14,8,4.0,Finished,71
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,HAM,Ferrari,20,9,2.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,HUL,Audi,4,10,1.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,LIN,RB F1 Team,18,11,0.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,ALO,Aston Martin,8,12,0.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,COL,Alpine F1 Team,13,13,0.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,GAS,Alpine F1 Team,15,14,0.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,ALB,Williams,9,15,0.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,BOR,Audi,19,16,0.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,BEA,Haas F1 Team,6,17,0.0,Lapped,70
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,PER,Cadillac F1 Team,22,18,0.0,Lapped,69
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,SAI,Williams,12,19,0.0,Lapped,69
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,CAM,Haas F1 Team,11,20,0.0,Lapped,69
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,STR,Aston Martin,16,21,0.0,Retired,30
+2026,20,Brazilian Grand Prix,Autódromo José Carlos Pace,BOT,Cadillac F1 Team,17,22,0.0,Did not start,0
