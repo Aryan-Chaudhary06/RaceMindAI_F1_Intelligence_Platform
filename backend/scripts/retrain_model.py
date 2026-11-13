@@ -5,8 +5,6 @@ import sys
 import os
 import pandas as pd
 
-# Make `app.*` imports work when this script is run from the repo root
-# (python scripts/retrain_model.py) or from anywhere else.
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, REPO_ROOT)
 
