@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { getCircuitSvgUrl } from "../data/circuits";
 import "./CircuitMap.css";
 
@@ -126,6 +126,8 @@ async function fetchCircuitData(url) {
 
 /**
  * Renders a real F1 circuit layout from local SVGs.
+ * Replicates the original SVG design with two thick white border lines and a dark/transparent gap,
+ * with a glowing car dot traveling down the center of the track gap.
  *
  * Props:
  *  - circuitName: string — matched against src/data/circuits.js to resolve SVG
@@ -145,6 +147,9 @@ export default function CircuitMap({ circuitName, mini = false, showCar = !mini,
   const [pathLength, setPathLength] = useState(0);
   const [drawn, setDrawn] = useState(0);
   const [carPos, setCarPos] = useState(null);
+
+  const rawId = useId();
+  const maskId = `circuit-mask-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   const url = getCircuitSvgUrl(circuitName);
 
@@ -257,6 +262,14 @@ export default function CircuitMap({ circuitName, mini = false, showCar = !mini,
     );
   }
 
+  // Dash animation properties
+  const dashArray = pathLength > 0 ? pathLength : undefined;
+  const dashOffset = pathLength > 0 ? Math.max(0, pathLength - drawn) : undefined;
+
+  // Track stroke dimensions matching the original SVGs (outer 20, inner cutout 5-6)
+  const outerWidth = mini ? 14 : 20;
+  const innerGapWidth = mini ? 4 : 5.5;
+
   return (
     <div className={wrapClass}>
       <svg
@@ -265,18 +278,37 @@ export default function CircuitMap({ circuitName, mini = false, showCar = !mini,
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {pathD && (
-          <>
-            {/* Base track (dim, always fully visible) */}
+        <defs>
+          {/* Mask that carves out the center gap, producing two solid white lines with a transparent slot */}
+          <mask id={maskId} maskUnits="userSpaceOnUse">
+            {/* 1. White base stroke creates the outer track boundaries */}
             <path
-              d={pathD}
-              stroke={mini ? "#232323" : "#1a1a1a"}
-              strokeWidth={mini ? 10 : 14}
+              d={pathD || ""}
+              stroke="#ffffff"
+              strokeWidth={outerWidth}
               strokeLinejoin="round"
               strokeLinecap="round"
               fill="none"
+              strokeDasharray={dashArray}
+              strokeDashoffset={dashOffset}
             />
-            {/* Measurement path, invisible, gives us getTotalLength/getPointAtLength */}
+            {/* 2. Black stroke cuts out the center gap, making it transparent */}
+            <path
+              d={pathD || ""}
+              stroke="#000000"
+              strokeWidth={innerGapWidth}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              fill="none"
+              strokeDasharray={dashArray}
+              strokeDashoffset={dashOffset}
+            />
+          </mask>
+        </defs>
+
+        {pathD && (
+          <>
+            {/* Invisible measurement path for getTotalLength / getPointAtLength */}
             <path
               ref={pathRef}
               d={pathD}
@@ -284,25 +316,29 @@ export default function CircuitMap({ circuitName, mini = false, showCar = !mini,
               strokeWidth="1"
               fill="none"
             />
-            {/* Draw-in racing line */}
-            {pathLength > 0 && (
-              <path
-                d={pathD}
-                stroke={mini ? "rgba(242,242,242,0.55)" : "rgba(242,242,242,0.75)"}
-                strokeWidth={mini ? 2 : 2.5}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                fill="none"
-                strokeDasharray={pathLength}
-                strokeDashoffset={pathLength - drawn}
-              />
-            )}
-            {/* Car dot */}
+
+            {/* The Circuit Track: Two thick white lines with the gap between them */}
+            <path
+              d={pathD}
+              stroke="#ffffff"
+              strokeWidth={outerWidth}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              fill="none"
+              mask={`url(#${maskId})`}
+              strokeDasharray={dashArray}
+              strokeDashoffset={dashOffset}
+            />
+
+            {/* Car dot moving right through the space between the two thick white lines */}
             {showCar && carPos && (
-              <g transform={`translate(${carPos.x}, ${carPos.y})`}>
-                <circle r={mini ? 6 : 9} fill="var(--red)" opacity="0.18" />
-                <circle r={mini ? 3.2 : 4.5} fill="var(--red)" />
-                <circle r={mini ? 1.4 : 2} fill="var(--white)" opacity="0.9" />
+              <g transform={`translate(${carPos.x}, ${carPos.y})`} className="circuit-car">
+                {/* Red telemetry glow halo */}
+                <circle r={mini ? 5 : 7} fill="#e10600" opacity="0.32" />
+                {/* Solid red car dot */}
+                <circle r={mini ? 2.2 : 2.8} fill="#e10600" />
+                {/* Bright white headlight center */}
+                <circle r={mini ? 0.9 : 1.2} fill="#ffffff" opacity="0.95" />
               </g>
             )}
           </>
